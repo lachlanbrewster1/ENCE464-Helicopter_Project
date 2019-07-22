@@ -1,0 +1,15 @@
+# Created: 22/07/2019, JRC
+# Source: http://software-dl.ti.com/ccs/esd/documents/sdto_ccs_source-control.html
+# According to above link, the following files are to be version-controlled:
+# .ccsproject
+# .cproject
+# .project
+# .settings
+# makefile.defs
+
+Debug/ 
+Release/
+.xdchelp
+.config/
+.launches/
+.DS_store
