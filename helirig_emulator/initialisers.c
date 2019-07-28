@@ -70,6 +70,7 @@ void initSSIGPIO (void)
     // Enabling the SSI0 peripheral
     SysCtlPeripheralEnable (SYSCTL_PERIPH_SSI0);
     // Wait for it to be ready
+    // Adding string
     while (!(SysCtlPeripheralReady (SYSCTL_PERIPH_GPIOA)))
     {
     }

@@ -1,11 +1,14 @@
 # Created: 22/07/2019, JRC
 # Source: http://software-dl.ti.com/ccs/esd/documents/sdto_ccs_source-control.html
-# According to above link, the following files are to be version-controlled:
-# .ccsproject
-# .cproject
-# .project
-# .settings
-# makefile.defs
+# In the ideal happy and perfect world, CCS and git would 
+# together work perfectly, allowing the user to seamlessly and 
+# painlessly compile executables. But this is not the case.
+
+# Instead all CCS generated files are ignored and only the source files 
+# are controlled. Instead a local workspace is created on the user's
+# local computer which is completely independent of version control,
+# and the user *imports* in and links to the source code. The source
+# code lies in another directory, which is version controlled.
 
 Debug/ 
 Release/
@@ -13,3 +16,14 @@ Release/
 .config/
 .launches/
 .DS_store
+.cproject
+.project
+.ccsproject
+.launches/
+.settings/
+targetConfigs/
+tm4c123gh6pm_startup_ccs.c
+tm4c1231h6pm_startup_ccs.c
+*.cmd
+makefile.defs
+
