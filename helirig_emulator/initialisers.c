@@ -1,69 +1,30 @@
 // *****************************************************************************
 //
 // initialisers.c
+// Currently just includes function definitions for initialising the SSI peripheral
+// to be used as SPI.
 //
-// Support for a set of four specific buttons and one slider switch on the Tiva/Orbit.
-// The buttons are:  UP and DOWN (on the Orbit daughterboard) plus
-// LEFT and RIGHT on the Tiva.
-// SW1 (switch 1) is on the Orbit daughterboard.
-//
-// Note: Pin PF0 (the pin for the RIGHT pushbutton - SW2 on
-// the Tiva board) needs special treatment - See PhilsNotesOnTiva.rtf.
-//
-// Note: The virtual signal and the remote interface does not correctly simulate
-//       a physical slider switch. As such, slider switch one is debounced the same
-//       way as the buttons. The naming of the functions and variables does not make
-//       a distinction between the buttons and the slider switch.
-//
-// Authors:  J.R Crosland, A.K Greer, J.S Chen - UCECE, largely based on
-//	         sample code 'buttons4.c' by Professor P. Bones.
+// Authors:  J.R Crosland- UCECE
 // Created:  07/02/2018
 // Last modified:  31/05/2018
 //
 // *****************************************************************************
 
-
-#include <stdint.h>
-#include <stdbool.h>
 #include "inc/hw_memmap.h" // Macros for the different ports and peripherals defined here.
 #include "driverlib/pin_map.h" // Definitions of pin addresses
 #include "driverlib/adc.h"
 #include "driverlib/gpio.h"
 #include "driverlib/sysctl.h"
 #include "driverlib/systick.h"
-#include "driverlib/uart.h"
-#include "OrbitOLED/OrbitOLEDInterface.h"
 #include "initialisers.h"
 #include "mainProg.h"
-//#include "uart.h"
-//#include "buttons.h"
-//#include "pwmGen.h"
-
-
 
 // *****************************************************************************
 // Initialisation functions for the clock (incl. SysTick), ADC, yaw, display
 // and UART
 // *****************************************************************************
-//void
-//initOperatingData (OperatingData_t* data, uint32_t altValue)
-//{
-//    data->mode = idle;
-//    data->referenceYaw = STARTING_REFERENCE;
-//    data->referenceAltitude = altValue;
-//    data->currentYaw = STARTING_POSITION;
-//    data->currentAltitude = altValue;
-//    data->mainMotorPWMDuty = PWM_DUTY_IDLE_STATE;
-//    data->tailMotorPWMDuty = PWM_DUTY_IDLE_STATE;
-//    data->referenceYawDeg = STARTING_REFERENCE;
-//    data->referenceAltPercent = STARTING_REFERENCE;
-//    data->iPartYaw = 0;
-//    data->pPartYaw = 0;
-//    data->iPartAlt = 0;
-//    data->pPartAlt = 0;
-//}
-
-void initSSIGPIO (void)
+void
+initSSIGPIO (void)
 {
     // Enable the GPIO port A peripheral
     SysCtlPeripheralEnable (SYSCTL_PERIPH_GPIOA);

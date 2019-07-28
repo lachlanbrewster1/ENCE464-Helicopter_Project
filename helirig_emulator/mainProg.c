@@ -1,18 +1,13 @@
 //*****************************************************************************
 //
-// mainProg.c - Time triggered kernel based program that controls the remote
-//              helicopters at the University of Canterbury. Contains the 
-//              function definitions for the interrupt service routines,
-//              each of the seven tasks and main().
+// mainProg.c - just currently runs an infinite loops that sends a string
+// over SPI using the SSI peripheral. Originally borrowed from the 361 helicopter
+// projects
 //
-// Authors:  J.R Crosland, A.K Greer, J.S Chen - UCECE
+// Authors:  J.R Crosland- UCECE
 // Created: 05/04/2018
-// Last modified:   30/05/2018
+// Last modified:   29/07/2019
 //
-//*****************************************************************************
-// Based on Milestone_1_b code, but initially based on and expanded from
-// Professor P Bones' ADCdemo program. Further expanded and modified to create
-// the full program for the helicopter project.
 //*****************************************************************************
 
 
@@ -60,20 +55,6 @@ static const uint32_t dacWriteCmdValue = 0x00003800; // First four zeros are red
 //    }
 //}
 
-
-//*****************************************************************************
-// The handler for the program reset interrupt. If PA6 is pulled down to 0V,
-// the system will reset.
-//*****************************************************************************
-//void
-//progResetIntHandler (void)
-//{
-//    GPIOIntClear (GPIO_PORTA_BASE, GPIO_INT_PIN_6);
-//    // Perform soft system reset.
-//    SysCtlReset ();
-//}
-
-
 // ----------------------------------------------------------------------------
 // End of interrupt handler definitions
 // ----------------------------------------------------------------------------
@@ -110,176 +91,6 @@ static const uint32_t dacWriteCmdValue = 0x00003800; // First four zeros are red
 //    }
 //}
 
-//void
-//taskUpdateYaw (void)
-//{
-//
-//}
-
-//*****************************************************************************
-// Controller task: updates the controller during the calibrate, flying and 
-// landing modes. This will return new PWM values for the PWM task to utilise.
-//*****************************************************************************
-//void
-//taskUpdateController (void)
-//{
-//    programData.currentYaw = getCurrentYaw();
-//    // Cycle through the program modes and do as necessary depending on the mode.
-//    switch (programData.mode)
-//    {
-//    case (flying):
-//        // Calculate new duty cycle values and update the duty cycle attributes of the
-//        // program data struct, in order for the PWM task to reconfigure the duty cycles.
-//        updateController(&programData, &yawControlData, &altitudeControlData);
-//        break;
-//    case (landing):
-//        // Check if the helicopter is close enough to the current reference
-//        // before decrementing the reference altitude as part of the landing sequence.
-//        if (isHeliWithinMargins (&programData, NOISE_MARGIN, YAW_MARGIN))
-//        {
-//            // Is the helicopter within the landed range?
-//            if (programData.referenceAltitude >= landedAltADCVal - (NEAR_LANDED_NOISE_MARGIN))
-//            {
-//                // Have met the "landed" criteria
-//                programData.mode = landed;
-//                programData.referenceYaw = 0;
-//            }
-//            else if (!(programData.referenceAltPercent <= MIN_ALTITUDE_PCT))
-//            {
-//                // Decrement the reference altitude further
-//                programData.referenceAltitude += ALTITUDE_INCREMENT_ADC;
-//                programData.referenceAltPercent -= ALTITUDE_INCREMENT_PCT;
-//            }
-//        }
-//        updateController (&programData, &yawControlData, &altitudeControlData);
-//        break;
-//    }
-//}
-
-//*****************************************************************************
-// PWM task: sets most recent PWM values. 
-//*****************************************************************************
-//void
-//taskUpdatePWM (void)
-//{
-//    // Counter variable used as part of the timing of the main rotor PWM
-//    // pulsing in calibrate mode.
-//    static int calibrateTicks = 0;
-//    // Cycle through the program modes and do as necessary depending on the mode.
-//    switch (programData.mode)
-//    {
-//    case(calibrate):
-//        enableMainTailPWM ();
-//        // Performing the main rotor PWM duty cycling.
-//        if (calibrateTicks >= CALIBRATE_TICKS_MAX)
-//        {
-//            setMainPWM (PWM_DUTY_MAIN_CALIB_HIGH);
-//            SysCtlDelay (CALIBRATE_SYSCTL_DELAY);
-//            calibrateTicks = 0;
-//        }
-//        else
-//        {
-//            setMainPWM (PWM_DUTY_MAIN_CALIB_LOW);
-//            calibrateTicks++;
-//        }
-//        break;
-//    case (landed):
-//    case (idle):
-//        disableMainTailPWM ();
-//        break;
-//    case (flying):
-//        enableMainTailPWM ();
-//        setMainPWM (programData.mainMotorPWMDuty);
-//        setTailPWM (programData.tailMotorPWMDuty);
-//        break;
-//    default:
-//        // Normal program operation
-//        setMainPWM (programData.mainMotorPWMDuty);
-//        setTailPWM (programData.tailMotorPWMDuty);
-//    }
-//}
-
-//*****************************************************************************
-// Buttons task: only updates during the flying mode. Polls all four push
-// buttons. Updates the reference altitude and yaw if their respective buttons
-// are pushed.
-//*****************************************************************************
-//void
-//taskUpdateButtons (void)
-//{
-//    // Only update the referenceYaw and referenceAltitude if the mode is flying.
-//    if (programData.mode == flying)
-//    {
-//        // Update the current yaw and reference values of the program data struct as necessary
-//        // after polling the buttons to see their state change.
-//        updateButtons ();
-//        // Up button check
-//        uint8_t butState = checkButton (UP);
-//        if (butState == PUSHED_TOP)
-//        {
-//            increaseAltitude (&programData);
-//        }
-//
-//        // Down button check
-//        butState = checkButton (DOWN);
-//        if (butState == PUSHED_TOP)
-//        {
-//            decreaseAltitude (&programData);
-//        }
-//
-//        // Left button check
-//        butState = checkButton (LEFT);
-//        if (butState == PUSHED_TOP)
-//        {
-//            decreaseYaw (&programData);
-//        }
-//        // Right button check
-//        butState = checkButton (RIGHT);
-//        if (butState == PUSHED_TOP)
-//        {
-//            increaseYaw (&programData);
-//        }
-//    }
-//}
-
-//*****************************************************************************
-// Slider switch task: polls the slider switch to obtain its current voltage
-// level. Causes state transitions as necessary on 'rising' or 'falling'
-// edges of the switch.
-//*****************************************************************************
-//void
-//taskUpdateSliderSwitch (void)
-//{
-//    // Check the current state of slider SW1 on the Orbit board
-//    int32_t sliderStatePresent = checkButton (SLIDER);
-//    // If current mode is fly and the slider switch has been pushed from up -> down
-//    if ((programData.mode == flying) && (isFallingEdgeSlider (sliderStatePresent, sliderStatePast)))
-//    {
-//            programData.mode = landing;
-//            programData.referenceAltitude += ALTITUDE_INCREMENT_ADC;
-//            programData.referenceAltPercent -= ALTITUDE_INCREMENT_PCT;
-//            // Calculate new reference yaw position which is <= 180 deg movement from current yaw
-//            programData.referenceYaw = calculateLandingReferenceYaw (programData.currentYaw);
-//            programData.referenceYawDeg = calculateYawDegs (programData.referenceYaw);
-//    }
-//    else if (isRisingEdgeSlider (sliderStatePresent, sliderStatePast))
-//    // The slider switch has been pushed from down -> up
-//    {
-//        if (programData.mode == landed)
-//        {
-//            // Transition into the flying mode
-//            programData.mode = flying;
-//        }
-//        else if (programData.mode == idle)
-//        {
-//            // Transition into the calibrate mode
-//            programData.mode = calibrate;
-//        }
-//    }
-//    // Update the past slider state
-//    sliderStatePast = sliderStatePresent;
-//}
-
 //*****************************************************************************
 // Display task: updates the display with current program values.
 //*****************************************************************************
@@ -288,40 +99,6 @@ static const uint32_t dacWriteCmdValue = 0x00003800; // First four zeros are red
 //{
 //    // Update the display using the current altitude and yaw, which are contained in the program struct
 //    displayStats (&programData, landedAltADCVal);
-//}
-
-//*****************************************************************************
-// UART task: sends out current program data.
-//*****************************************************************************
-//void
-//taskUpdateUART(void)
-//{
-//    // Updates the UART string array with current program data and sends it
-//    uartUpdateInformation (&programData, landedAltADCVal);
-//}
-
-//void
-//taskCheckCalibration (void)
-//{
-//    static bool isReadyTakeoff = false;
-//    if (getCalibrationStatus() && !isReadyTakeoff)
-//    {
-//        // Set the current yaw counter to 0 in the program data struct and reset
-//        // other attributes of the operating data.
-//        programData.currentYaw = 0;
-//        programData.mode = flying;
-//        programData.referenceYaw = 0;
-//        programData.referenceAltitude = landedAltADCVal;
-//        programData.referenceAltPercent = MIN_ALTITUDE_PCT;
-//        programData.referenceYawDeg = 0;
-//        programData.mainMotorPWMDuty = PWM_DUTY_FLYING_INIT;
-//        programData.tailMotorPWMDuty = PWM_DUTY_FLYING_INIT;
-//
-//        // Provide both the yaw and altitude controllers with an initial integral
-//        // error for a faster takeoff.
-//
-//        isReadyTakeoff = true;
-//    }
 //}
 
 // ----------------------------------------------------------------------------
@@ -373,9 +150,13 @@ main (void)
     // Send DAC command
     uint8_t ui8Idx;
     char *pcChars = "DACA";
-    for (ui8Idx = 0; ui8Idx < DAC_CMD_ARRAY_LENGTH; ui8Idx++)
+    // Loop and send this string infinitely
+    while(true)
     {
-        SSIDataPut (SSI0_BASE, pcChars[ui8Idx]);
+        for (ui8Idx = 0; ui8Idx < DAC_CMD_ARRAY_LENGTH; ui8Idx++)
+        {
+            SSIDataPut (SSI0_BASE, pcChars[ui8Idx]);
+        }
     }
 }
 
