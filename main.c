@@ -31,13 +31,30 @@
 #include "driverlib/rom.h"
 #include "driverlib/sysctl.h"
 #include "driverlib/uart.h"
+#include "driverlib/adc.h"
+#include "driverlib/pwm.h"
+#include "driverlib/gpio.h"
+#include "driverlib/sysctl.h"
+#include "driverlib/systick.h"
+#include "driverlib/interrupt.h"
+#include "driverlib/debug.h"
+
 #include "utils/uartstdio.h"
+#include "utils/ustdlib.h"
+
 #include "led_task.h"
 #include "switch_task.h"
+#include "adcTask.h"
+
 #include "FreeRTOS.h"
 #include "task.h"
 #include "queue.h"
 #include "semphr.h"
+
+
+
+
+
 
 //*****************************************************************************
 //
