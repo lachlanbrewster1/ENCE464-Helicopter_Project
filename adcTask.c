@@ -31,6 +31,11 @@ static uint16_t landed_ref;      // Landed reference of the helicopter
 //*****************************************************************************
 #define ADCTASKSTACKSIZE        128         // Stack size in words
 
+// TEMPORARY // TODO
+#define PRIORITY_ADC_TASK       3
+#define BLOCK_TIME_MAX          1
+
+
 
 // FreeRTOS structures.
 extern xSemaphoreHandle g_uartMutex;
@@ -77,7 +82,7 @@ adcTask(void *pvParameters)
         uint32_t ulValue;
 
         // Trigger ADC conversion. // ISR?
-        ADCProcessorTrigger(ADC_BASE, ADC_SEQUENCE);
+        ADCProcessorTrigger(ADC0_BASE, 3);
         //
         // Wait for sample.
         // while(!ADCIntStatus(ADC_BASE, ADC_SEQUENCE, false));

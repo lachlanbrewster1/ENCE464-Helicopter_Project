@@ -38,6 +38,7 @@
 //
 //*****************************************************************************
 #define PWMTASKSTACKSIZE        128         // Stack size in words
+#define PRIORITY_PWM_TASK       3
 
 
 
@@ -74,13 +75,13 @@ pwmTask(void *pvParameters)
 
         //
         // Wait for the required amount of time.
-        vTaskDelayUntil(&ui32WakeTime, ui32LEDToggleDelay / portTICK_RATE_MS);
+        //vTaskDelayUntil(&ui32WakeTime, ui32LEDToggleDelay / portTICK_RATE_MS);
 
         // OR -----------------------------------------
 
         //
         // Wait for the required amount of time to check back.
-        vTaskDelayUntil(&ui16LastTime, ui32SwitchDelay / portTICK_RATE_MS);
+        //vTaskDelayUntil(&ui16LastTime, ui32SwitchDelay / portTICK_RATE_MS);
 
     }
 
@@ -101,7 +102,7 @@ pwmTaskInit(void)
 
     //
     // Create the ADC task.
-    if(xTaskCreate(pwmTask, (const portCHAR *)"ADC",
+    if(xTaskCreate(pwmTask, (const portCHAR *)"PWM",
                    PWMTASKSTACKSIZE, NULL, tskIDLE_PRIORITY +
                    PRIORITY_PWM_TASK, NULL) != pdTRUE)
     {

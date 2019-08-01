@@ -53,12 +53,19 @@
 
 
 
+#define DATA_QUEUE_LENGTH               1
+#define DATA_QUEUE_ITEM_SIZE            sizeof(uint16_t)
+
+
+
 //*****************************************************************************
-//
-// The mutex that protects concurrent access of UART from multiple tasks.
-//
+// FreeRTOS structures used by program. Includes The mutex that protects
+// concurrent access of UART from multiple tasks, Queue for ADC task
 //*****************************************************************************
+xQueueHandle g_adcReadQueue;
 xSemaphoreHandle g_pUARTSemaphore;
+
+
 
 //*****************************************************************************
 //
@@ -149,8 +156,12 @@ main(void)
     UARTprintf("\n\nWelcome to the ENCE464 helirig thing!\n");
 
     //
-    // Create a mutex to guard the UART.
-    g_pUARTSemaphore = xSemaphoreCreateMutex();
+    // Creating needed FreeRTOS structures
+    g_adcReadQueue = xQueueCreate(DATA_QUEUE_LENGTH, DATA_QUEUE_ITEM_SIZE);
+
+    g_pUARTSemaphore = xSemaphoreCreateMutex(); // Mutex to guard the UART.
+
+
 
     //
     // Create the LED task.
@@ -182,15 +193,15 @@ main(void)
         }
     }
 
-    //
-    // Create the PWM task.
-    if(pwmTaskInit() != 0)
-    {
-
-        while(1)
-        {
-        }
-    }
+//    //
+//    // Create the PWM task.
+//    if(pwmTaskInit() != 0)
+//    {
+//
+//        while(1)
+//        {
+//        }
+//    }
 
     //
     // Start the scheduler.  This should not return.
