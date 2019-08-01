@@ -164,8 +164,27 @@ main(void)
 
     //
     // Create the switch task.
-    //
     if(SwitchTaskInit() != 0)
+    {
+
+        while(1)
+        {
+        }
+    }
+
+    //
+    // Create the ADC task.
+    if(adcTaskInit() != 0)
+    {
+
+        while(1)
+        {
+        }
+    }
+
+    //
+    // Create the PWM task.
+    if(pwmTaskInit() != 0)
     {
 
         while(1)

@@ -32,6 +32,11 @@ static uint16_t landed_ref;      // Landed reference of the helicopter
 #define ADCTASKSTACKSIZE        128         // Stack size in words
 
 
+// FreeRTOS structures.
+extern xSemaphoreHandle g_uartMutex;
+extern xQueueHandle g_adcReadQueue;
+
+
 
 //*****************************************************************************
 // This task handles ADC for the helirig, constantly monitoring the height of the rig,
@@ -41,43 +46,68 @@ static void
 adcTask(void *pvParameters)
 {
 
-    portTickType ui32WakeTime;
+//    portTickType ui32WakeTime;
+//
+//    //
+//    // Get the current tick count.
+//    ui32WakeTime = xTaskGetTickCount();
+//
+//
+//    // OR -----------------------------------------
+//
+//    portTickType ui16LastTime;
+//
+//    //
+//    // Get the current tick count.
+//    ui16LastTime = xTaskGetTickCount();
 
-    //
-    // Get the current tick count.
-    ui32WakeTime = xTaskGetTickCount();
 
-
-    // OR -----------------------------------------
-
-    portTickType ui16LastTime;
-
-    //
-    // Get the current tick count.
-    ui16LastTime = xTaskGetTickCount();
-
+    xSemaphoreTake(g_uartMutex, BLOCK_TIME_MAX);
+    UARTprintf("ADCTask starting.\n");
+    xSemaphoreGive(g_uartMutex);
 
 
     //
     // Loop forever
     while(1) {
 
-        ADCIntHandler();
+        // ADCIntHandler();    // old
 
+        // Value to be read
+        uint32_t ulValue;
 
+        // Trigger ADC conversion. // ISR?
+        ADCProcessorTrigger(ADC_BASE, ADC_SEQUENCE);
+        //
+        // Wait for sample.
+        // while(!ADCIntStatus(ADC_BASE, ADC_SEQUENCE, false));
 
         //
-        // Wait for the required amount of time.
-        vTaskDelayUntil(&ui32WakeTime, ui32LEDToggleDelay / portTICK_RATE_MS);
-
-        // OR -----------------------------------------
-
+        // Get the single sample from ADC0.
+        ADCSequenceDataGet(ADC0_BASE, 3, &ulValue);
         //
-        // Wait for the required amount of time to check back.
-        vTaskDelayUntil(&ui16LastTime, ui32SwitchDelay / portTICK_RATE_MS);
+        // Place it in the circular buffer (advancing write index)
+        writeCircBuf (&g_inBuffer, ulValue);
+        //
+        // Clean up, clearing the interrupt
+        ADCIntClear(ADC0_BASE, 3);
+        //
+        // Add the ADC read to queue.
+        xQueueSend(g_adcReadQueue, &ulValue, BLOCK_TIME_MAX);
+
+
+
+//        //
+//        // Wait for the required amount of time.
+//        vTaskDelayUntil(&ui32WakeTime, ui32LEDToggleDelay / portTICK_RATE_MS);
+//
+//        // OR -----------------------------------------
+//
+//        //
+//        // Wait for the required amount of time to check back.
+//        vTaskDelayUntil(&ui16LastTime, ui32SwitchDelay / portTICK_RATE_MS);
 
     }
-
 
 
 }
