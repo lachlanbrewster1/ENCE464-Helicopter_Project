@@ -13,6 +13,9 @@
 #include "circBufT.h"
 #include "adcTask.h"
 
+#include "stdio.h"
+#include "stdlib.h"
+
 #include "priorities.h"
 #include "FreeRTOS.h"
 #include "task.h"
@@ -32,13 +35,13 @@ static uint16_t landed_ref;      // Landed reference of the helicopter
 #define ADCTASKSTACKSIZE        128         // Stack size in words
 
 // TEMPORARY // TODO
-#define PRIORITY_ADC_TASK       3
-#define BLOCK_TIME_MAX          1
+//#define PRIORITY_ADC_TASK       3
+//#define BLOCK_TIME_MAX          1
 
 
 
 // FreeRTOS structures.
-extern xSemaphoreHandle g_uartMutex;
+extern xSemaphoreHandle g_pUARTSemaphore;
 extern xQueueHandle g_adcReadQueue;
 
 
@@ -67,9 +70,16 @@ adcTask(void *pvParameters)
 //    ui16LastTime = xTaskGetTickCount();
 
 
-    xSemaphoreTake(g_uartMutex, BLOCK_TIME_MAX);
-    UARTprintf("ADCTask starting.\n");
-    xSemaphoreGive(g_uartMutex);
+    //xSemaphoreTake(g_pUARTSemaphore, 1);  // BLOCK_TIME_MAX -> 1
+    //UARTprintf("ADCTask starting.\n");
+    //xSemaphoreGive(g_pUARTSemaphore);
+
+    xSemaphoreTake(g_pUARTSemaphore, 1);  // BLOCK_TIME_MAX -> 1
+    char string[100];  // 100 characters across the display
+    usnprintf (string, sizeof(string), "ADCTask starting.\r\n");
+    UARTSend(string);
+    xSemaphoreGive(g_pUARTSemaphore);
+
 
 
     //
@@ -90,6 +100,13 @@ adcTask(void *pvParameters)
         //
         // Get the single sample from ADC0.
         ADCSequenceDataGet(ADC0_BASE, 3, &ulValue);
+
+        xSemaphoreTake(g_pUARTSemaphore, 1);  // BLOCK_TIME_MAX -> 1
+        char string[31];
+        usnprintf (string, sizeof(string), "ADC value: %d\r\n", ulValue);
+        UARTSend(string);
+        xSemaphoreGive(g_pUARTSemaphore);
+
         //
         // Place it in the circular buffer (advancing write index)
         writeCircBuf (&g_inBuffer, ulValue);
@@ -98,7 +115,7 @@ adcTask(void *pvParameters)
         ADCIntClear(ADC0_BASE, 3);
         //
         // Add the ADC read to queue.
-        xQueueSend(g_adcReadQueue, &ulValue, BLOCK_TIME_MAX);
+        xQueueSend(g_adcReadQueue, &ulValue, 1);  // BLOCK_TIME_MAX -> 1
 
 
 
@@ -132,7 +149,7 @@ adcTaskInit(void)
     // Create the ADC task.
     if(xTaskCreate(adcTask, (const portCHAR *)"ADC",
                    ADCTASKSTACKSIZE, NULL, tskIDLE_PRIORITY +
-                   PRIORITY_ADC_TASK, NULL) != pdTRUE)
+                   3, NULL) != pdTRUE)                 // PRIORITY_ADC_TASK -> 3
     {
         return(1);
     }
