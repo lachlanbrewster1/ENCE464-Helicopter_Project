@@ -2,15 +2,14 @@
 #define BUTTONS_SWITCH_TASK_H_
 
 // *******************************************************
-// buttons4.h
+// buttons_switch_task.h
 //
-// Support for a set of FOUR specific buttons on the Tiva/Orbit.
-// ENCE361 sample code.
-// The buttons are:  UP and DOWN (on the Orbit daughterboard) plus
-// LEFT and RIGHT on the Tiva.
+// Support for a set of two buttons and one switch used on the Orbit
+// daughterboard. Also has the buttons and switch FreeRTOS task.
+// The buttons are:  UP and DOWN (on the Orbit daughterboard)
 //
-// P.J. Bones UCECE
-// Last modified:  7.2.2018
+// Jozef Richard Crosland
+// Last modified:  05.08.2019
 // 
 // *******************************************************
 
@@ -96,7 +95,7 @@ typedef struct button_switch_s_t
 Given a button switch type object, the necessary peripheral, port and pin is initialised and enabled. 
 */
 void
-initButtonSwitchObj (buttonSwitch_t but_sw_obj);
+initButtonSwitchObj (buttonSwitch_t *but_sw_obj);
 
 /* 
 Initialises all of the globally defined buttons and switches for this module 
@@ -105,58 +104,28 @@ void
 initAllButtonSwitchObjs (void);
 
 
-// Debounce algorithm: A state machine is associated with each button.
-// A state change occurs only after NUM_BUT_POLLS consecutive polls have
-// read the pin in the opposite condition, before the state changes and
-// a flag is set.  Set NUM_BUT_POLLS according to the polling rate.
-
-// *******************************************************
-// initButtons: Initialise the variables associated with the set of buttons
-// defined by the constants above.
-void
-initButtons (void);
-
 /*
  Returns the current button event status of the button object
  */
 butStates_t
-getButtonEventState (buttonSwitch_t but_obj);
+getButtonEventState (buttonSwitch_t *but_obj);
 
 /*
 Determines whether a button event is a pushed one or a released event.
 This is only called if the polls pass the debounce threshold
  */
 butStates_t
-updateButtonEventState (buttonSwitch_t but_obj);
+updateButtonEventState (buttonSwitch_t *but_obj);
 
 /* Reads in the logic level of the button object passed in regardless of whether it's button or switch instance.
 If it's a switch instance, only the logic level of the pin is read and updated. Otherwise, debouncing is performed on the button instance and the button event is updated if in fact it has been pressed for long enough or if it has been released */
 void 
-updateButtonSwitchObj (buttonSwitch_t but_sw_obj);
+updateButtonSwitchObj (buttonSwitch_t *but_sw_obj);
 
 /* Updates all of the switches and buttons as defined in this module */
 void
 updateAllButtonSwitchObjs (void);
 
-
-// *******************************************************
-// updateButtons: Function designed to be called regularly. It polls all
-// buttons once and updates variables associated with the buttons if
-// necessary.  It is efficient enough to be part of an ISR, e.g. from
-// a SysTick interrupt.
-void
-updateButtons (void);
-
-/* Returns the logic level of the slider switch pin */
-int
-checkSlider (void);
-
-// *******************************************************
-// checkButton: Function returns the new button logical state if the button
-// logical state (PUSHED or RELEASED) has changed since the last call,
-// otherwise returns NO_CHANGE.
-uint8_t
-checkButton (uint8_t butName);
 
 extern uint32_t ButtonsSwitchTaskInit (void); 
 

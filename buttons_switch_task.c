@@ -95,12 +95,15 @@ static buttonSwitch_t g_slider_switch_one =
 Given a button switch type object, the necessary peripheral, port and pin is initialised and enabled. 
 */
 void
-initButtonSwitchObj (buttonSwitch_t but_sw_obj)
+initButtonSwitchObj (buttonSwitch_t *but_sw_obj)
 {
     // Enable the peripheral and configure the port and pin
-    SysCtlPeripheralEnable (but_sw_obj.tiva_peripheral_base);
-    GPIOPinTypeGPIOInput (but_sw_obj.tiva_gpio_port, but_sw_obj.tiva_gpio_pin); 
-    GPIOPadConfigSet (but_sw_obj.tiva_gpio_port, but_sw_obj.tiva_gpio_pin,                          but_sw_obj.tiva_gpio_strength,                                              but_sw_obj.tiva_gpio_pin_type);
+    SysCtlPeripheralEnable (but_sw_obj->tiva_peripheral_base);
+    GPIOPinTypeGPIOInput (but_sw_obj->tiva_gpio_port, but_sw_obj->tiva_gpio_pin); 
+    GPIOPadConfigSet (but_sw_obj->tiva_gpio_port, 
+                        but_sw_obj->tiva_gpio_pin, 
+                        but_sw_obj->tiva_gpio_strength,
+                        but_sw_obj->tiva_gpio_pin_type);
 }
 
 /* 
@@ -110,54 +113,18 @@ void
 initAllButtonSwitchObjs (void)
 {
     // Manually call initialiser, but can we do this iteratively eventually?
-    initButtonSwitchObj (g_up_button);
-    initButtonSwitchObj (g_down_button);
-    initButtonSwitchObj (g_slider_switch_one);
-}
-
-// *******************************************************
-// initButtons: Initialise the variables associated with the set of buttons
-// defined by the constants in the buttons2.h header file.
-void
-initButtons (void)
-{
-	int i;
-
-	// UP button (active HIGH)
-    SysCtlPeripheralEnable (UP_BUT_PERIPH);
-    GPIOPinTypeGPIOInput (UP_BUT_PORT_BASE, UP_BUT_PIN);
-    GPIOPadConfigSet (UP_BUT_PORT_BASE, UP_BUT_PIN, GPIO_STRENGTH_2MA,
-       GPIO_PIN_TYPE_STD_WPD);
-    but_normal[UP_BUTTON] = UP_BUT_NORMAL;
-
-	// DOWN button (active HIGH)
-    SysCtlPeripheralEnable (DOWN_BUT_PERIPH);
-    GPIOPinTypeGPIOInput (DOWN_BUT_PORT_BASE, DOWN_BUT_PIN);
-    GPIOPadConfigSet (DOWN_BUT_PORT_BASE, DOWN_BUT_PIN, GPIO_STRENGTH_2MA,
-       GPIO_PIN_TYPE_STD_WPD);
-    but_normal[DOWN_BUTTON] = DOWN_BUT_NORMAL;
-
-    // SLIDER switch (HIGH = up)
-    SysCtlPeripheralEnable (SLIDER_ONE_PERIPH);
-    GPIOPinTypeGPIOInput (SLIDER_ONE_PORT_BASE, SLIDER_ONE_PIN);
-    GPIOPadConfigSet (SLIDER_ONE_PORT_BASE, SLIDER_ONE_PIN, GPIO_STRENGTH_2MA,
-    GPIO_PIN_TYPE_STD_WPD);
-
-	for (i = 0; i < NUM_BUTS; i++)
-	{
-		but_state[i] = but_normal[i];
-		but_count[i] = 0;
-		but_flag[i] = false;
-	}
+    initButtonSwitchObj (&g_up_button);
+    initButtonSwitchObj (&g_down_button);
+    initButtonSwitchObj (&g_slider_switch_one);
 }
 
 /*
  Returns the current button event status of the button object
  */
 butStates_t
-getButtonEventState (buttonSwitch_t but_obj)
+getButtonEventState (buttonSwitch_t *but_obj)
 {
-    return (but_obj.but_evt_state);
+    return (but_obj->but_evt_state);
 }
 
 /*
@@ -165,11 +132,11 @@ Determines whether a button event is a pushed one or a released event.
 This is only called if the polls pass the debounce threshold
  */
 butStates_t
-updateButtonEventState (buttonSwitch_t but_obj)
+updateButtonEventState (buttonSwitch_t *but_obj)
 {
     // Assume it's release unless otherwise
     butStates_t ret_val = RELEASED;
-    if (but_obj.current_button_state != but_obj.is_active_high)
+    if (but_obj->current_button_state == but_obj->is_active_high)
     {
         ret_val = PUSHED;
     }
@@ -179,31 +146,32 @@ updateButtonEventState (buttonSwitch_t but_obj)
 /* Reads in the logic level of the button object passed in regardless of whether it's button or switch instance.
 If it's a switch instance, only the logic level of the pin is read and updated. Otherwise, debouncing is performed on the button instance and the button event is updated if in fact it has been pressed for long enough or if it has been released */
 void 
-updateButtonSwitchObj (buttonSwitch_t but_sw_obj)
+updateButtonSwitchObj (buttonSwitch_t *but_sw_obj)
 {
     /* Check the logic level regardless of whether it's a button or switch instance */ 
-    but_sw_obj.current_logic_level = GPIOPinRead (but_sw_obj.tiva_gpio_port,                                  but_sw_obj.tiva_gpio_pin);
+    but_sw_obj->current_logic_level = GPIOPinRead (but_sw_obj->tiva_gpio_port, 
+                                                    but_sw_obj->tiva_gpio_pin);
     // Only do debouncing if it's a button instance
-    if (but_sw_obj.is_button)
+    if (but_sw_obj->is_button)
     {
-        if (but_sw_obj.current_logic_level != but_sw_obj.current_button_state)
+        if (but_sw_obj->current_logic_level != but_sw_obj->current_button_state)
         {
             // Increment debounce count
-            but_sw_obj.but_deb_count++;
+            but_sw_obj->but_deb_count++;
             /* If the count exceeds threshold, update the current button state and reset the debounce count. Also update whether it's push or release event */
-            if (but_sw_obj.but_deb_count >= NUM_BUT_POLLS)
+            if (but_sw_obj->but_deb_count >= NUM_BUT_POLLS)
             {
-                but_sw_obj.current_button_state = but_sw_obj.current_logic_level;
-                but_sw_obj.but_deb_count = 0;
+                but_sw_obj->current_button_state = but_sw_obj->current_logic_level;
+                but_sw_obj->but_deb_count = 0;
                 // Set whether it's a released or pushed button event
-                but_sw_obj.but_evt_state = updateButtonEventState (but_sw_obj);
+                but_sw_obj->but_evt_state = updateButtonEventState (but_sw_obj);
             }
         }
         else
         {
             // Reset button debounce count and explicit set no change event
-            but_sw_obj.but_deb_count = 0;
-            but_sw_obj.but_evt_state = NO_CHANGE;
+            but_sw_obj->but_deb_count = 0;
+            but_sw_obj->but_evt_state = NO_CHANGE;
         }
         
     }
@@ -214,70 +182,9 @@ updateButtonSwitchObj (buttonSwitch_t but_sw_obj)
 void
 updateAllButtonSwitchObjs (void)
 {
-    updateButtonSwitchObj (g_up_button);
-    updateButtonSwitchObj (g_down_button);
-    updateButtonSwitchObj (g_slider_switch_one);
-}
-
-// *******************************************************
-// updateButtons: Function designed to be called regularly. It polls all
-// buttons once and updates variables associated with the buttons if
-// necessary.  It is efficient enough to be part of an ISR, e.g. from
-// a SysTick interrupt.
-// Debounce algorithm: A state machine is associated with each button.
-// A state change occurs only after NUM_BUT_POLLS consecutive polls have
-// read the pin in the opposite condition, before the state changes and
-// a flag is set.  Set NUM_BUT_POLLS according to the polling rate.
-void
-updateButtons (void)
-{
-	bool but_value[NUM_BUTS];
-	int i;
-	
-	// Read the pins; true means HIGH, false means LOW
-	but_value[UP_BUTTON] = (GPIOPinRead (UP_BUT_PORT_BASE, UP_BUT_PIN) == UP_BUT_PIN);
-	but_value[DOWN_BUTTON] = (GPIOPinRead (DOWN_BUT_PORT_BASE, DOWN_BUT_PIN) == DOWN_BUT_PIN);
-	// Iterate through the buttons, updating button variables as required
-	for (i = 0; i < NUM_BUTS; i++)
-	{
-        if (but_value[i] != but_state[i])
-        {
-        	but_count[i]++;
-        	if (but_count[i] >= NUM_BUT_POLLS)
-        	{
-        		but_state[i] = but_value[i];
-        		but_flag[i] = true;	   // Reset by call to checkButton()
-        		but_count[i] = 0;
-        	}
-        }
-        else
-        	but_count[i] = 0;
-	}
-}
-
-/* Returns the logic level of the slider switch pin */
-int32_t
-checkSlider (void)
-{
-    return (GPIOPinRead (SLIDER_ONE_PORT_BASE, SLIDER_ONE_PIN) == SLIDER_ONE_PIN);
-}
-
-// *******************************************************
-// checkButton: Function returns the new button logical state if the button
-// logical state (PUSHED or RELEASED) has changed since the last call,
-// otherwise returns NO_CHANGE.
-uint8_t
-checkButton (uint8_t butName)
-{
-	if (but_flag[butName])
-	{
-		but_flag[butName] = false;
-		if (but_state[butName] == but_normal[butName])
-			return RELEASED;
-		else
-			return PUSHED;
-	}
-	return NO_CHANGE;
+    updateButtonSwitchObj (&g_up_button);
+    updateButtonSwitchObj (&g_down_button);
+    updateButtonSwitchObj (&g_slider_switch_one);
 }
 
 /* The buttons and switches task. This polls and debounces whatever buttons are configured, and sends a message on the queue indicating which button has been pressed. Also prints to UART */
@@ -297,7 +204,7 @@ ButtonsSwitchTask (void *pvParameters)
         // Poll all buttons and update their button event statuses
         updateAllButtonSwitchObjs();
         /* If the up button was pressed, print to UART and append message to queue */
-        if (g_up_button.but_evt_state == PUSHED)
+        if (getButtonEventState(&g_up_button) == PUSHED)
         {
             ui8MessageOne = UP_BUTTON;
             // Guard UART from concurrent access
@@ -306,7 +213,7 @@ ButtonsSwitchTask (void *pvParameters)
             xSemaphoreGive (g_pUARTSemaphore);
         }
         /* If the up button was pressed, print to UART and append message to queue */
-        if (g_down_button.but_evt_state == PUSHED)
+        if (getButtonEventState(&g_down_button) == PUSHED)
         {
             ui8MessageOne = DOWN_BUTTON;
             // Guard UART from concurrent access
