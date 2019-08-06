@@ -68,6 +68,7 @@
 // concurrent access of UART from multiple tasks, Queue for ADC task
 //*****************************************************************************
 xQueueHandle g_adcReadQueue;
+xQueueHandle g_pwmWriteQueue;
 xSemaphoreHandle g_pUARTSemaphore;
 
 
@@ -167,6 +168,7 @@ main(void)
     //
     // Creating needed FreeRTOS structures
     g_adcReadQueue = xQueueCreate(DATA_QUEUE_LENGTH, DATA_QUEUE_ITEM_SIZE);
+    g_pwmReadQueue = xQueueCreate(DATA_QUEUE_LENGTH, DATA_QUEUE_ITEM_SIZE);
     g_pUARTSemaphore = xSemaphoreCreateMutex(); // Mutex to guard the UART.
 
 
