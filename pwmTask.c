@@ -9,6 +9,10 @@
  */
 #include <stdint.h>
 #include <stdbool.h>
+#include "stdio.h"
+#include "stdlib.h"
+
+
 #include "inc/hw_memmap.h"
 #include "inc/hw_types.h"
 #include "driverlib/adc.h"
@@ -32,6 +36,7 @@
 
 
 
+
 //*****************************************************************************
 //
 // The stack size for the PWM task.
@@ -39,6 +44,14 @@
 //*****************************************************************************
 #define PWMTASKSTACKSIZE        128         // Stack size in words
 #define PRIORITY_PWM_TASK       3
+
+// TEMPORARY // TODO
+//#define PRIORITY_ADC_TASK       3
+//#define BLOCK_TIME_MAX          1
+
+// FreeRTOS structures.
+extern xSemaphoreHandle g_uartMutex;
+extern xQueueHandle g_pwmWriteQueue;
 
 
 
@@ -63,6 +76,14 @@ pwmTask(void *pvParameters)
     //
     // Get the current tick count.
     ui16LastTime = xTaskGetTickCount();
+    
+    
+    xSemaphoreTake(g_pUARTSemaphore, 1);  // BLOCK_TIME_MAX -> 1
+    char string[100];  // 100 characters across the display
+    usnprintf (string, sizeof(string), "PWMTask starting.\r\n");
+    UARTSend(string);
+    xSemaphoreGive(g_pUARTSemaphore);
+
 
 
 
@@ -70,7 +91,15 @@ pwmTask(void *pvParameters)
     // Loop forever
     while(1) {
 
-        // Do something
+        uint8_t pwmValue;  
+
+        //
+        // Wait for data to be received
+        xQueueReceive(g_pwmWriteQueue, &pwmValue, BLOCK_TIME_MAX);
+
+        //
+        // Set duty cycle of rotor
+        PwmSetDuty(dutyPc);
 
 
         //
