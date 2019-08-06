@@ -99,7 +99,7 @@ pwmTask(void *pvParameters)
 
         //
         // Set duty cycle of rotor
-        PwmSetDuty(dutyPc);
+        PwmSetDuty(pwmValue);
 
 
         //
