@@ -88,6 +88,6 @@ typedef struct operating_data_t_s {
     int32_t referenceAltPercent;
 } OperatingData_t;
 
-
+/* Name of buttons, switch and ADC event write queue: g_butsADCEventQueue */
 
 #endif /* SHAREDCONSTANTS_H_ */
