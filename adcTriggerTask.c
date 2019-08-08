@@ -14,7 +14,7 @@
 #include "driverlib/debug.h"
 #include "utils/ustdlib.h"
 #include "circBufT.h"
-#include "adcTask.h"
+#include "adcTriggerTask.h"
 
 #include "stdio.h"
 #include "stdlib.h"
@@ -54,23 +54,8 @@ extern xQueueHandle g_adcReadQueue;
 // storing the received values in a circular buffer
 //*****************************************************************************
 static void
-adcTask(void *pvParameters)
+adcTriggerTask(void *pvParameters)
 {
-
-//    portTickType ui32WakeTime;
-//
-//    //
-//    // Get the current tick count.
-//    ui32WakeTime = xTaskGetTickCount();
-//
-//
-//    // OR -----------------------------------------
-//
-//    portTickType ui16LastTime;
-//
-//    //
-//    // Get the current tick count.
-//    ui16LastTime = xTaskGetTickCount();
 
 
     //xSemaphoreTake(g_pUARTSemaphore, BLOCK_TIME_MAX);
@@ -79,7 +64,7 @@ adcTask(void *pvParameters)
 
     xSemaphoreTake(g_pUARTSemaphore, BLOCK_TIME_MAX);
     char string[100];  // 100 characters across the display
-    usnprintf (string, sizeof(string), "ADCTask starting.\r\n");
+    usnprintf (string, sizeof(string), "ADCTriggerTask starting.\r\n");
     UARTSend(string);
     xSemaphoreGive(g_pUARTSemaphore);
 
@@ -121,17 +106,6 @@ adcTask(void *pvParameters)
         xQueueSend(g_adcReadQueue, &ulValue, BLOCK_TIME_MAX);
 
 
-
-//        //
-//        // Wait for the required amount of time.
-//        vTaskDelayUntil(&ui32WakeTime, ui32LEDToggleDelay / portTICK_RATE_MS);
-//
-//        // OR -----------------------------------------
-//
-//        //
-//        // Wait for the required amount of time to check back.
-//        vTaskDelayUntil(&ui16LastTime, ui32SwitchDelay / portTICK_RATE_MS);
-
     }
 
 
@@ -142,7 +116,7 @@ adcTask(void *pvParameters)
 // Initializes the ADC task.
 //*****************************************************************************
 uint32_t
-adcTaskInit(void)
+adcTriggerTaskInit(void)
 {
     //
     // Initialize ADC things

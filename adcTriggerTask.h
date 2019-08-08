@@ -5,8 +5,8 @@
  *      Author: lbr63
  */
 
-#ifndef ADCTASK_H_
-#define ADCTASK_H_
+#ifndef ADCTRIGGERTASK_H_
+#define ADCTRIGGERTASK_H_
 
 #define BUF_SIZE 100
 
@@ -15,7 +15,14 @@
 // Initializes the ADC task.
 //*****************************************************************************
 uint32_t
-adcTaskInit(void);
+adcTriggerTaskInit(void);
+
+//*****************************************************************************
+// This task handles ADC for the helirig, constantly monitoring the height of the rig,
+// storing the received values in a circular buffer
+//*****************************************************************************
+static void
+adcTriggerTask(void *pvParameters);
 
 
 //*****************************************************************************
@@ -43,4 +50,4 @@ void
 setLandedRef(void);
 
 
-#endif /* ADCTASK_H_ */
+#endif /* ADCTRIGGERTASK_H_ */

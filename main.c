@@ -47,7 +47,9 @@
 
 #include "led_task.h"
 #include "switch_task.h"
-#include "adcTask.h"
+#include "adcQueueTask.h"
+#include "adcTriggerTask.h"
+
 #include "uart.h"
 
 #include "FreeRTOS.h"
