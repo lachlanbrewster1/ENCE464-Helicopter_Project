@@ -50,12 +50,10 @@
 #include "adcTask.h"
 #include "uart.h"
 
-
 #include "FreeRTOS.h"
 #include "task.h"
 #include "queue.h"
 #include "semphr.h"
-
 
 
 #define DATA_QUEUE_LENGTH               1
@@ -69,6 +67,8 @@
 //*****************************************************************************
 xQueueHandle g_adcReadQueue;
 xQueueHandle g_pwmWriteQueue;
+xQueueHandle g_pwmReadQueue;
+
 xSemaphoreHandle g_pUARTSemaphore;
 
 
@@ -103,6 +103,101 @@ vApplicationStackOverflowHook(xTaskHandle *pxTask, char *pcTaskName)
     {
     }
 }
+
+
+//*****************************************************************************
+//
+// Initialize FreeRTOS and start the initial set of tasks.
+//
+//*****************************************************************************
+int
+main(void)
+{
+    //
+    // Set the clocking to run at 50 MHz from the PLL.
+    ROM_SysCtlClockSet(SYSCTL_SYSDIV_4 | SYSCTL_USE_PLL | SYSCTL_XTAL_16MHZ |
+                       SYSCTL_OSC_MAIN);
+
+    //
+    // Initialize the UART and configure it for 115,200, 8-N-1 operation.
+    //ConfigureUART();
+    initialiseUSB_UART();
+
+    //
+    // Print introduction.
+    //UARTprintf("\n\nWelcome to the ENCE464 helirig thing!\n");
+    char string[100];  // 100 characters across the display
+    usnprintf (string, sizeof(string), "Welcome to the ENCE464 helirig thing!\r\n");
+    UARTSend(string);
+
+    //
+    // Creating needed FreeRTOS structures
+    g_adcReadQueue = xQueueCreate(DATA_QUEUE_LENGTH, DATA_QUEUE_ITEM_SIZE);
+    g_pwmReadQueue = xQueueCreate(DATA_QUEUE_LENGTH, DATA_QUEUE_ITEM_SIZE);
+    g_pwmWriteQueue = xQueueCreate(DATA_QUEUE_LENGTH, DATA_QUEUE_ITEM_SIZE);
+    g_pUARTSemaphore = xSemaphoreCreateMutex(); // Mutex to guard the UART.
+
+
+    //
+    // Create the LED task.
+    if(LEDTaskInit() != 0)
+    {
+
+        while(1)
+        {
+        }
+    }
+
+    //
+    // Create the switch task.
+    if(SwitchTaskInit() != 0)
+    {
+
+        while(1)
+        {
+        }
+    }
+
+    //
+    // Create the ADC task.
+    if(adcTaskInit() != 0)
+    {
+
+        while(1)
+        {
+        }
+    }
+
+    //
+    // Create the PWM task.
+    if(pwmTaskInit() != 0)
+    {
+
+        while(1)
+        {
+        }
+    }
+
+    //
+    // Start the scheduler.  This should not return.
+    vTaskStartScheduler();
+
+    //
+    // In case the scheduler returns for some reason, print an error and loop
+    // forever.
+    while(1)
+    {
+    }
+}
+
+
+
+
+
+
+
+
+
 
 ////*****************************************************************************
 ////
@@ -139,87 +234,3 @@ vApplicationStackOverflowHook(xTaskHandle *pxTask, char *pcTaskName)
 //    //
 //    UARTStdioConfig(0, 115200, 16000000);
 //}
-
-//*****************************************************************************
-//
-// Initialize FreeRTOS and start the initial set of tasks.
-//
-//*****************************************************************************
-int
-main(void)
-{
-    //
-    // Set the clocking to run at 50 MHz from the PLL.
-    ROM_SysCtlClockSet(SYSCTL_SYSDIV_4 | SYSCTL_USE_PLL | SYSCTL_XTAL_16MHZ |
-                       SYSCTL_OSC_MAIN);
-
-    //
-    // Initialize the UART and configure it for 115,200, 8-N-1 operation.
-    //ConfigureUART();
-    initialiseUSB_UART();
-
-    //
-    // Print introduction.
-    //UARTprintf("\n\nWelcome to the ENCE464 helirig thing!\n");
-    char string[100];  // 100 characters across the display
-    usnprintf (string, sizeof(string), "Welcome to the ENCE464 helirig thing!\r\n");
-    UARTSend(string);
-
-    //
-    // Creating needed FreeRTOS structures
-    g_adcReadQueue = xQueueCreate(DATA_QUEUE_LENGTH, DATA_QUEUE_ITEM_SIZE);
-    g_pwmReadQueue = xQueueCreate(DATA_QUEUE_LENGTH, DATA_QUEUE_ITEM_SIZE);
-    g_pUARTSemaphore = xSemaphoreCreateMutex(); // Mutex to guard the UART.
-
-
-    //
-    // Create the LED task.
-    if(LEDTaskInit() != 0)
-    {
-
-        while(1)
-        {
-        }
-    }
-
-    //
-    // Create the switch task.
-    if(SwitchTaskInit() != 0)
-    {
-
-        while(1)
-        {
-        }
-    }
-
-    //
-    // Create the ADC task.
-    if(adcTaskInit() != 0)
-    {
-
-        while(1)
-        {
-        }
-    }
-
-//    //
-//    // Create the PWM task.
-//    if(pwmTaskInit() != 0)
-//    {
-//
-//        while(1)
-//        {
-//        }
-//    }
-
-    //
-    // Start the scheduler.  This should not return.
-    vTaskStartScheduler();
-
-    //
-    // In case the scheduler returns for some reason, print an error and loop
-    // forever.
-    while(1)
-    {
-    }
-}

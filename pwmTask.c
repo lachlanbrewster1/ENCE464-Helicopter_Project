@@ -12,6 +12,8 @@
 #include "stdio.h"
 #include "stdlib.h"
 
+#include <priorities.h>
+#include "uart.h"
 
 #include "inc/hw_memmap.h"
 #include "inc/hw_types.h"
@@ -28,7 +30,6 @@
 #include "circBufT.h"
 #include "pwmTask.h"
 
-#include "priorities.h"
 #include "FreeRTOS.h"
 #include "task.h"
 #include "queue.h"
@@ -43,14 +44,13 @@
 //
 //*****************************************************************************
 #define PWMTASKSTACKSIZE        128         // Stack size in words
-#define PRIORITY_PWM_TASK       3
 
 // TEMPORARY // TODO
-//#define PRIORITY_ADC_TASK       3
+//#define PRIORITY_PWM_TASK       4
 //#define BLOCK_TIME_MAX          1
 
 // FreeRTOS structures.
-extern xSemaphoreHandle g_uartMutex;
+extern xSemaphoreHandle g_pUARTSemaphore;
 extern xQueueHandle g_pwmWriteQueue;
 
 
@@ -78,13 +78,11 @@ pwmTask(void *pvParameters)
     ui16LastTime = xTaskGetTickCount();
     
     
-    xSemaphoreTake(g_pUARTSemaphore, 1);  // BLOCK_TIME_MAX -> 1
+    xSemaphoreTake(g_pUARTSemaphore, BLOCK_TIME_MAX);
     char string[100];  // 100 characters across the display
     usnprintf (string, sizeof(string), "PWMTask starting.\r\n");
     UARTSend(string);
     xSemaphoreGive(g_pUARTSemaphore);
-
-
 
 
     //
@@ -98,8 +96,8 @@ pwmTask(void *pvParameters)
         xQueueReceive(g_pwmWriteQueue, &pwmValue, BLOCK_TIME_MAX);
 
         //
-        // Set duty cycle of rotor
-        PwmSetDuty(pwmValue);
+        // Set duty cycle of rotor // Might need to scale it first? What kind of value is received?
+        setDutyCycle(pwmValue, MAIN_ROTOR);
 
 
         //
@@ -120,7 +118,7 @@ pwmTask(void *pvParameters)
 
 
 //*****************************************************************************
-// Initializes the ADC task.
+// Initializes the PWM task.
 //*****************************************************************************
 uint32_t
 pwmTaskInit(void)
@@ -130,7 +128,7 @@ pwmTaskInit(void)
     initPWM();
 
     //
-    // Create the ADC task.
+    // Create the PWM task.
     if(xTaskCreate(pwmTask, (const portCHAR *)"PWM",
                    PWMTASKSTACKSIZE, NULL, tskIDLE_PRIORITY +
                    PRIORITY_PWM_TASK, NULL) != pdTRUE)

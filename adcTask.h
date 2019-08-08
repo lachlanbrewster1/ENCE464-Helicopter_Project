@@ -10,6 +10,8 @@
 
 #define BUF_SIZE 100
 
+
+
 //*****************************************************************************
 // The handler for the ADC conversion complete interrupt.
 // Writes to the circular buffer.

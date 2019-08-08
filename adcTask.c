@@ -1,5 +1,8 @@
 #include <stdint.h>
 #include <stdbool.h>
+
+#include <priorities.h>
+
 #include "inc/hw_memmap.h"
 #include "inc/hw_types.h"
 #include "driverlib/adc.h"
@@ -16,7 +19,7 @@
 #include "stdio.h"
 #include "stdlib.h"
 
-#include "priorities.h"
+
 #include "FreeRTOS.h"
 #include "task.h"
 #include "queue.h"
@@ -70,11 +73,11 @@ adcTask(void *pvParameters)
 //    ui16LastTime = xTaskGetTickCount();
 
 
-    //xSemaphoreTake(g_pUARTSemaphore, 1);  // BLOCK_TIME_MAX -> 1
+    //xSemaphoreTake(g_pUARTSemaphore, BLOCK_TIME_MAX);
     //UARTprintf("ADCTask starting.\n");
     //xSemaphoreGive(g_pUARTSemaphore);
 
-    xSemaphoreTake(g_pUARTSemaphore, 1);  // BLOCK_TIME_MAX -> 1
+    xSemaphoreTake(g_pUARTSemaphore, BLOCK_TIME_MAX);
     char string[100];  // 100 characters across the display
     usnprintf (string, sizeof(string), "ADCTask starting.\r\n");
     UARTSend(string);
@@ -101,11 +104,11 @@ adcTask(void *pvParameters)
         // Get the single sample from ADC0.
         ADCSequenceDataGet(ADC0_BASE, 3, &ulValue);
 
-        xSemaphoreTake(g_pUARTSemaphore, 1);  // BLOCK_TIME_MAX -> 1
-        char string[31];
-        usnprintf (string, sizeof(string), "ADC value: %d\r\n", ulValue);
-        UARTSend(string);
-        xSemaphoreGive(g_pUARTSemaphore);
+//        xSemaphoreTake(g_pUARTSemaphore, BLOCK_TIME_MAX);
+//        char string[31];
+//        usnprintf (string, sizeof(string), "ADC value: %d\r\n", ulValue);
+//        UARTSend(string);
+//        xSemaphoreGive(g_pUARTSemaphore);
 
         //
         // Place it in the circular buffer (advancing write index)
@@ -115,7 +118,7 @@ adcTask(void *pvParameters)
         ADCIntClear(ADC0_BASE, 3);
         //
         // Add the ADC read to queue.
-        xQueueSend(g_adcReadQueue, &ulValue, 1);  // BLOCK_TIME_MAX -> 1
+        xQueueSend(g_adcReadQueue, &ulValue, BLOCK_TIME_MAX);
 
 
 
@@ -149,7 +152,7 @@ adcTaskInit(void)
     // Create the ADC task.
     if(xTaskCreate(adcTask, (const portCHAR *)"ADC",
                    ADCTASKSTACKSIZE, NULL, tskIDLE_PRIORITY +
-                   3, NULL) != pdTRUE)                 // PRIORITY_ADC_TASK -> 3
+                   PRIORITY_ADC_TASK, NULL) != pdTRUE)
     {
         return(1);
     }
