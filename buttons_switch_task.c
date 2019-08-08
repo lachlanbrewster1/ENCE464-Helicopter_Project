@@ -33,16 +33,16 @@
 
 /* FreeRTOS task specific defines */
 #define BUTTONSSWITCHTASKSTACKSIZE      128
-#define BUTTONSSWITCHTASKPOLLDELAY      10
+#define BUTTONSSWITCHTASKPOLLDELAY      25
 extern xQueueHandle g_pLEDQueue;
 extern xSemaphoreHandle g_pUARTSemaphore;
 
 /* Global, module-specific, non-FreeRTOS defines */
 
-static bool but_state[NUM_BUTS];	// Corresponds to the electrical state
-static uint8_t but_count[NUM_BUTS];
-static bool but_flag[NUM_BUTS];
-static bool but_normal[NUM_BUTS];   // Corresponds to the electrical state
+//static bool but_state[NUM_BUTS];	// Corresponds to the electrical state
+//static uint8_t but_count[NUM_BUTS];
+//static bool but_flag[NUM_BUTS];
+//static bool but_normal[NUM_BUTS];   // Corresponds to the electrical state
 
 /* Tiva board up button object instance */
 static buttonSwitch_t g_up_button = 
@@ -58,6 +58,7 @@ static buttonSwitch_t g_up_button =
     .current_button_state = false,
     .but_deb_count = 0,
     .but_evt_state = NO_CHANGE
+    /* Can ignore the switch event field as this is a button instance */
 };
 
 /* Tiva board down button object instance */
@@ -74,6 +75,7 @@ static buttonSwitch_t g_down_button =
     .current_button_state = false,
     .but_deb_count = 0,
     .but_evt_state = NO_CHANGE
+    /* Can ignore the switch event field as this is a button instance */
 };
 
 /* Orbit OLED daughter board slider switch object instance */
@@ -85,10 +87,13 @@ static buttonSwitch_t g_slider_switch_one =
     .tiva_gpio_strength = SLIDER_ONE_GPIO_STRENGTH,
     .tiva_gpio_pin_type = SLIDER_ONE_GPIO_TYPE,
     .is_button = false,
-    .current_logic_level = false,
-    .is_active_high = NA_IS_SWITCH,
+    .current_logic_level = false, // This is actually set to the current value at initialisation
     .current_button_state = IS_SWITCH,
-    /* Can ignore the debouncing count and event fields as this is a switch instance */
+    .is_active_high = true,
+    .but_deb_count = 0,
+    .current_sw_state = false,
+    .previous_sw_state = false
+    /* Can ignore the button event field as this is a switch instance */
 };
 
 /*
@@ -104,6 +109,14 @@ initButtonSwitchObj (buttonSwitch_t *but_sw_obj)
                         but_sw_obj->tiva_gpio_pin, 
                         but_sw_obj->tiva_gpio_strength,
                         but_sw_obj->tiva_gpio_pin_type);
+
+    // For slider switch instances, read in the current logic level to initialise the switch object
+    if (!(but_sw_obj->is_button))
+    {
+        but_sw_obj->current_sw_state = GPIOPinRead (but_sw_obj->tiva_gpio_port,
+                                                 but_sw_obj->tiva_gpio_pin);
+        but_sw_obj->previous_sw_state = but_sw_obj->current_sw_state;
+    }
 }
 
 /* 
@@ -127,6 +140,22 @@ getButtonEventState (buttonSwitch_t *but_obj)
     return (but_obj->but_evt_state);
 }
 
+/* Returns the current switch event status of the switch object
+ */
+switchStates_t
+getSwitchEventState (buttonSwitch_t *sw_obj)
+{
+    return (sw_obj->sw_evt_state);
+}
+/* Returns true if the current button event state is PUSHED, false otherwise
+ */
+bool
+isButtonEventStatePushed (buttonSwitch_t *but_obj)
+{
+    return ((getButtonEventState (but_obj) == PUSHED) ? true : false);
+}
+
+
 /*
 Determines whether a button event is a pushed one or a released event.
 This is only called if the polls pass the debounce threshold
@@ -134,46 +163,132 @@ This is only called if the polls pass the debounce threshold
 butStates_t
 updateButtonEventState (buttonSwitch_t *but_obj)
 {
-    // Assume it's release unless otherwise
-    butStates_t ret_val = RELEASED;
+    butStates_t retVal;
     if (but_obj->current_button_state == but_obj->is_active_high)
     {
-        ret_val = PUSHED;
+        retVal = PUSHED;
     }
-    return ret_val;
+    else if (but_obj->current_button_state != but_obj->is_active_high)
+    {
+        retVal = RELEASED;
+    }
+    else
+    {
+        retVal = NO_CHANGE;
+    }
+    return retVal;
+}
+
+/*
+Determines which switch transition event has occurred
+as defined in the switchStates_t enum.
+ */
+switchStates_t
+updateSwitchEventState (const buttonSwitch_t *sw_obj)
+{
+    switchStates_t retVal;
+    if ((sw_obj->current_sw_state) && !(sw_obj->previous_sw_state))
+    {
+        retVal = PUSHED_UP;
+    }
+    else if (!(sw_obj->current_sw_state) && (sw_obj->previous_sw_state))
+    {
+        retVal = PUSHED_DOWN;
+    }
+    return retVal;
+}
+
+
+/* Debouncing procedure specifically for a button instance. This
+ * updates the button event field of the structure if a button push or
+ * release event occurs
+*/
+void
+updateButtonObj (buttonSwitch_t *but_obj)
+{
+    // Only start debouncing when the current logic level differs from the current button state
+    if (but_obj->current_logic_level != but_obj->current_button_state)
+    {
+        // Increment debounce count
+        but_obj->but_deb_count++;
+        /* If the count exceeds threshold, update the current button state and reset the debounce count. Also update whether it's push or release event */
+        if (but_obj->but_deb_count >= NUM_BUT_POLLS)
+        {
+            but_obj->current_button_state = but_obj->current_logic_level;
+            but_obj->but_deb_count = 0;
+            // Set whether it's a released or pushed button event
+            but_obj->but_evt_state = updateButtonEventState (but_obj);
+        }
+    }
+    else
+    {
+        // Reset button debounce count and explicit set no change event
+        but_obj->but_deb_count = 0;
+        but_obj->but_evt_state = NO_CHANGE;
+    }
+}
+
+/* Debouncing procedure specifically for a switch instance. This
+ * updates the button event field of the structure if a switch change instance
+ * occurs.
+ * This might have dodgy logic that needs to be thoroughly checked
+*/
+void
+updateSwitchObj (buttonSwitch_t *sw_obj)
+{
+    // Only start debouncing when the current logic level differs from the current state
+    if (sw_obj->current_logic_level != sw_obj->current_sw_state)
+    {
+        // Increment debounce count
+        sw_obj->but_deb_count++;
+        /* If the count exceeds threshold, update the current button state and reset the debounce count.
+         * Also update whether it's switch up or switch down event */
+        if (sw_obj->but_deb_count >= NUM_BUT_POLLS)
+        {
+            sw_obj->previous_sw_state = sw_obj->current_sw_state;
+            sw_obj->current_sw_state = sw_obj->current_logic_level;
+            sw_obj->but_deb_count = 0;
+            // Set whether it's a released or pushed button event
+            sw_obj->sw_evt_state = updateSwitchEventState (sw_obj);
+        }
+    }
+    else
+    {
+        // Reset button debounce count and set state to be current logic level
+        sw_obj->but_deb_count = 0;
+        switchStates_t tmpState;
+        if (sw_obj->current_sw_state)
+        {
+            tmpState = LOGIC_HIGH_STATE;
+        }
+        else
+        {
+            tmpState = LOGIC_LOW_STATE;
+        }
+        sw_obj->sw_evt_state = tmpState;
+    }
 }
 
 /* Reads in the logic level of the button object passed in regardless of whether it's button or switch instance.
-If it's a switch instance, only the logic level of the pin is read and updated. Otherwise, debouncing is performed on the button instance and the button event is updated if in fact it has been pressed for long enough or if it has been released */
+If it's a switch instance, only the logic level of the pin is read and updated.
+Otherwise, debouncing is performed on the button instance and the button event is updated if in fact it has been pressed for long enough or if it has been released.
+If the parameter instance is a switch, then a slightly different debouncing function is called specifically designed for the switch
+*/
 void 
 updateButtonSwitchObj (buttonSwitch_t *but_sw_obj)
 {
     /* Check the logic level regardless of whether it's a button or switch instance */ 
     but_sw_obj->current_logic_level = GPIOPinRead (but_sw_obj->tiva_gpio_port, 
                                                     but_sw_obj->tiva_gpio_pin);
-    // Only do debouncing if it's a button instance
+    // Button instance debouncing
     if (but_sw_obj->is_button)
     {
-        if (but_sw_obj->current_logic_level != but_sw_obj->current_button_state)
-        {
-            // Increment debounce count
-            but_sw_obj->but_deb_count++;
-            /* If the count exceeds threshold, update the current button state and reset the debounce count. Also update whether it's push or release event */
-            if (but_sw_obj->but_deb_count >= NUM_BUT_POLLS)
-            {
-                but_sw_obj->current_button_state = but_sw_obj->current_logic_level;
-                but_sw_obj->but_deb_count = 0;
-                // Set whether it's a released or pushed button event
-                but_sw_obj->but_evt_state = updateButtonEventState (but_sw_obj);
-            }
-        }
-        else
-        {
-            // Reset button debounce count and explicit set no change event
-            but_sw_obj->but_deb_count = 0;
-            but_sw_obj->but_evt_state = NO_CHANGE;
-        }
-        
+        updateButtonObj (but_sw_obj);
+    }
+    // Switch instance debouncing
+    else if (!(but_sw_obj->is_button))
+    {
+        updateSwitchObj (but_sw_obj);
     }
     
 }
@@ -192,8 +307,8 @@ static void
 ButtonsSwitchTask (void *pvParameters)
 {
     portTickType ui16LastTime;
-    uint32_t ui32PollDelay = BUTTONSSWITCHTASKPOLLDELAY;
-    uint8_t ui8MessageOne, ui8MessageTwo;
+    uint32_t ui32PollDelay = 25;
+    butEvents_t eventMessage;
 
     // Get the current tick count.
     ui16LastTime = xTaskGetTickCount();
@@ -203,42 +318,59 @@ ButtonsSwitchTask (void *pvParameters)
     {
         // Poll all buttons and update their button event statuses
         updateAllButtonSwitchObjs();
-        /* If the up button was pressed, print to UART and append message to queue */
-        if (getButtonEventState(&g_up_button) == PUSHED)
+
+        // Get button event states from both the up and down button
+        bool upButtonPushed = isButtonEventStatePushed (&g_up_button);
+        bool downButtonPushed = isButtonEventStatePushed (&g_down_button);
+
+        // Determine message to append to queue
+        if ((upButtonPushed && downButtonPushed))
         {
-            ui8MessageOne = UP_BUTTON;
+            eventMessage = UP_AND_DOWN_BUTTON_PUSHED;
+            // Guard UART from concurrent access
+            xSemaphoreTake (g_pUARTSemaphore, portMAX_DELAY);
+            UARTprintf ("Up and down buttons are pressed.\n");
+            xSemaphoreGive (g_pUARTSemaphore);
+        }
+        else if (upButtonPushed && !(downButtonPushed))
+        {
+            eventMessage = UP_BUTTON_PUSHED;
             // Guard UART from concurrent access
             xSemaphoreTake (g_pUARTSemaphore, portMAX_DELAY);
             UARTprintf ("Up button is pressed.\n");
             xSemaphoreGive (g_pUARTSemaphore);
         }
-        /* If the up button was pressed, print to UART and append message to queue */
-        if (getButtonEventState(&g_down_button) == PUSHED)
+        else if (!(upButtonPushed) && downButtonPushed)
         {
-            ui8MessageOne = DOWN_BUTTON;
+            eventMessage = DOWN_BUTTON_PUSHED;
             // Guard UART from concurrent access
             xSemaphoreTake (g_pUARTSemaphore, portMAX_DELAY);
             UARTprintf ("Down button is pressed.\n");
             xSemaphoreGive (g_pUARTSemaphore);
         }
-        if (xQueueSend (g_pLEDQueue, &ui8MessageOne, portMAX_DELAY) != pdPASS)
+        else
         {
-            // Oh shit, the queue is full. Disastrous. Should never happen.
-            UARTprintf("\nQueue full. This should never happen.\n");
-            while(1)
-            {
-                // Infinite loop
-            }
+            eventMessage = NO_EVENT;
         }
-        if (xQueueSend (g_pLEDQueue, &ui8MessageTwo, portMAX_DELAY) != pdPASS)
+
+        // Only append message to the queue if a button was pushed
+        if (eventMessage != NO_EVENT)
         {
-            // Oh shit, the queue is full. Disastrous. Should never happen.
-            UARTprintf("\nQueue full. This should never happen.\n");
-            while(1)
+            // Append event message to the queue
+            if (xQueueSend (g_pLEDQueue, &eventMessage, portMAX_DELAY) != pdPASS)
             {
-                // Infinite loop
+                // Oh shit, the queue is full. Disastrous. Should never happen.
+                xSemaphoreTake (g_pUARTSemaphore, portMAX_DELAY);
+                UARTprintf("\nQueue full. This should never happen.\n");
+                xSemaphoreGive (g_pUARTSemaphore);
+                while(1)
+                {
+                    // Infinite loop
+                }
             }
+
         }
+
         // Wait for the required amount of time
         vTaskDelayUntil (&ui16LastTime, ui32PollDelay / portTICK_RATE_MS);
     }
@@ -255,6 +387,7 @@ uint32_t ButtonsSwitchTaskInit (void)
     {
         return (1);
     }
+    UARTprintf("Buttons and switch task initialized.\n");
     // Success
     return (0);
 }

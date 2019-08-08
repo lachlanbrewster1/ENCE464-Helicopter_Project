@@ -74,8 +74,8 @@ xQueueHandle g_pLEDQueue;
 // [G, R, B] range is 0 to 0xFFFF per color.
 //
 typedef enum rgb_led_index_e {
-    GREEN_INDEX,
     RED_INDEX,
+    GREEN_INDEX,
     BLUE_INDEX
 } rgbLEDIndex_t;
 
@@ -95,7 +95,7 @@ LEDTask(void *pvParameters)
 {
     portTickType ui32WakeTime;
     uint32_t ui32LEDToggleDelay;
-    uint8_t i8Message;
+    butStates_t i8Message;
 
     //
     // Initialize the LED Toggle Delay to default value.
@@ -120,7 +120,7 @@ LEDTask(void *pvParameters)
             //
             // If up button, update to next LED.
             //
-            if(i8Message == UP_BUTTON)
+            if(i8Message == UP_BUTTON_PUSHED)
             {
                 //
                 // Update the LED buffer to turn off represent disabling the red LED and turning on the blue LED
@@ -145,7 +145,7 @@ LEDTask(void *pvParameters)
             //
             // If right button, update delay time between toggles of led.
             //
-            if(i8Message == DOWN_BUTTON)
+            if(i8Message == DOWN_BUTTON_PUSHED)
             {
                 //
                 // Update the LED buffer to turn off represent disabling the blue LED and turning on the red LED

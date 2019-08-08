@@ -20,6 +20,15 @@
 // Constants
 //*****************************************************************************
 enum butNames {UP_BUTTON = 0, DOWN_BUTTON};
+
+typedef enum but_evt_e
+{
+    NO_EVENT = 0,
+    UP_BUTTON_PUSHED,
+    DOWN_BUTTON_PUSHED,
+    UP_AND_DOWN_BUTTON_PUSHED
+} butEvents_t;
+
 typedef enum but_states_e 
 {
     RELEASED = 0, 
@@ -27,6 +36,13 @@ typedef enum but_states_e
     NO_CHANGE, 
     IS_SWITCH
 } butStates_t;
+
+typedef enum switch_states_e {
+    LOGIC_LOW_STATE = 0,
+    LOGIC_HIGH_STATE,
+    PUSHED_UP,
+    PUSHED_DOWN
+} switchStates_t;
 
 typedef enum active_high_type_e {
     NA_IS_SWITCH = -1,
@@ -51,11 +67,14 @@ typedef struct button_switch_s_t
     uint32_t tiva_gpio_strength;
     uint32_t tiva_gpio_pin_type;
     bool is_button;
-    activeHighType_t is_active_high;
+    bool is_active_high;
     bool current_logic_level;
     bool current_button_state;
     uint8_t but_deb_count;
     butStates_t but_evt_state;
+    switchStates_t sw_evt_state;
+    bool current_sw_state;
+    bool previous_sw_state;
 } buttonSwitch_t;
 
 
@@ -63,7 +82,7 @@ typedef struct button_switch_s_t
 #define UP_BUT_PERIPH  SYSCTL_PERIPH_GPIOE
 #define UP_BUT_PORT_BASE  GPIO_PORTE_BASE
 #define UP_BUT_PIN  GPIO_PIN_0
-#define UP_BUT_ACTIVE_HIGH  IS_ACTIVE_HIGH
+#define UP_BUT_ACTIVE_HIGH  true
 #define UP_BUT_GPIO_STRENGTH GPIO_STRENGTH_2MA
 #define UP_BUT_GPIO_TYPE GPIO_PIN_TYPE_STD_WPD
 #define UP_BUT_NORMAL false
@@ -72,7 +91,7 @@ typedef struct button_switch_s_t
 #define DOWN_BUT_PERIPH  SYSCTL_PERIPH_GPIOD
 #define DOWN_BUT_PORT_BASE  GPIO_PORTD_BASE
 #define DOWN_BUT_PIN  GPIO_PIN_2
-#define DOWN_BUT_ACTIVE_HIGH  IS_ACTIVE_HIGH
+#define DOWN_BUT_ACTIVE_HIGH  true
 #define DOWN_BUT_GPIO_STRENGTH GPIO_STRENGTH_2MA
 #define DOWN_BUT_GPIO_TYPE GPIO_PIN_TYPE_STD_WPD
 #define DOWN_BUT_NORMAL false
@@ -81,7 +100,7 @@ typedef struct button_switch_s_t
 #define SLIDER_ONE_PERIPH SYSCTL_PERIPH_GPIOA
 #define SLIDER_ONE_PORT_BASE GPIO_PORTA_BASE
 #define SLIDER_ONE_PIN GPIO_PIN_7
-#define SLIDER_ONE_ACTIVE_HIGH NA_IS_SWITCH
+#define SLIDER_ONE_ACTIVE_HIGH false
 #define SLIDER_ONE_GPIO_STRENGTH GPIO_STRENGTH_2MA
 #define SLIDER_ONE_GPIO_TYPE GPIO_PIN_TYPE_STD_WPD
 
@@ -109,6 +128,11 @@ initAllButtonSwitchObjs (void);
  */
 butStates_t
 getButtonEventState (buttonSwitch_t *but_obj);
+
+/* Returns true if the current button event state is PUSHED, false otherwise
+ */
+bool
+isButtonEventStatePushed (buttonSwitch_t *but_obj);
 
 /*
 Determines whether a button event is a pushed one or a released event.
