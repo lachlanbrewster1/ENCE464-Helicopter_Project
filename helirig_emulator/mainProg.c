@@ -13,22 +13,25 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include "inc/hw_memmap.h" // Macros for the different ports and peripherals defined here.
-#include "driverlib/pin_map.h" // Definitions of pin addresses
-#include "driverlib/adc.h" //         }
-#include "driverlib/gpio.h" //         }
-#include "driverlib/sysctl.h" //        }-> API functions
-#include "driverlib/systick.h" //      }
-#include "driverlib/interrupt.h" //   }
-#include "driverlib/ssi.h"
-#include "initialisers.h"
-#include "sharedConstantsTypes.h"
+#include "../inc/hw_memmap.h" // Macros for the different ports and peripherals defined here.
+#include "../driverlib/pin_map.h" // Definitions of pin addresses
+#include "../driverlib/adc.h" //         }
+#include "../driverlib/gpio.h" //         }
+#include "../driverlib/sysctl.h" //        }-> API functions
+#include "../driverlib/systick.h" //      }
+#include "../driverlib/interrupt.h" //   }
+#include "../driverlib/ssi.h"
+#include "../initialisers.h"
+#include "../sharedConstantsTypes.h"
 #include "mainProg.h"
 
 #define DAC_WRITE_CMD_NGA_NSHDN_2048 0x3800
 #define DAC_CMD_ARRAY_LENGTH 4
 static const uint32_t dacWriteCmdValue = 0x00003800; // First four zeros are redundant
 #define DAC_CMD_LENGTH_W_RDDT_BITS 16
+
+#define sampling_rate = 10              //In milliseconds
+volatile double current_height = 0;     //Current height of the helicopter initialised to zero
 
 // ----------------------------------------------------------------------------
 // Start of interrupt handler definitions
@@ -124,6 +127,70 @@ static const uint32_t dacWriteCmdValue = 0x00003800; // First four zeros are red
 //}
 
 
+//*****************************************************************************
+// This is attempt 1 to model the behaviour of the helicopter
+//*****************************************************************************
+/*void
+helicopterHeight (double main_thrust)
+{
+    //Effect of the main rotor on the height of the helicopter.
+    //Equation from discretising is (5*z^2)/(5*z^2 + 0.5z)
+    double main_rotor_thrust;
+    main_rotor_thrust = (5*main_thrust*main_thrust)/(5*main_thrust*main_thrust + 0.5*main_thrust);
+
+    //Main Force vs PWM LUT
+    //Going to use a generic scalar of 10.
+    main_rotor_thrust = main_rotor_thrust * 10;
+
+    //Effect of Gravity
+    //Assuming that the mass of the helicopter is 0.25 kg
+    //Therefore, force g = 0.25*9.81 = 2.4525
+    main_rotor_thrust = main_rotor_thrust - 2.4525;
+
+    //Effect from the helicopter mount
+    //Equation from discretising is 1.5*((10*z^2)/(10*z^2 + 3*z))
+    current_height = 1.5*((10*main_rotor_thrust*main_rotor_thrust)/(10*main_rotor_thrust*main_rotor_thrust + 3*main_rotor_thrust));
+}*/
+
+
+
+//*****************************************************************************
+// This is attempt 2 to model the behaviour of the helicopter
+//*****************************************************************************
+void
+helicopterHeight (double main_thrust)
+{
+    //Force due to weight is a changing quantity which is influenced from the current height of the helicopter.
+    double weight_force = 0.2 + current_height/100;
+
+    //Effective thrust is the force of the motor minus the weight force
+    double thrust = main_thrust - (weight_force * 100);
+
+    //Acceleration is dependent upon the effective thrust of the motor
+    double acceleration = ((2*thrust)*(2*thrust)/200);
+
+    //Check the direction
+    if (thrust < 0) {
+        acceleration = -acceleration;
+    }
+
+    //change in height is the effecitve thrust multiplied byt the sampling rate
+    double change_height = acceleration * sampling_rate;
+
+    current_height += change_height;
+
+    if (current_height < 0) {
+        current_height = 0;
+    }
+
+    if (current_height > 100) {
+        current_height = 100;
+    }
+}
+
+
+
+
 int
 main (void)
 {
@@ -157,6 +224,8 @@ main (void)
         {
             SSIDataPut (SSI0_BASE, pcChars[ui8Idx]);
         }
+
+        helicopterHeight (double main_thrust)
     }
 }
 
