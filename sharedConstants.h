@@ -78,8 +78,8 @@ typedef enum displaymodes_e {Altitude, ADCMean, OFF} displayModes;
 
 typedef struct operating_data_t_s {
     HeliMode mode;
-    uint32_t referenceAltitudeDig; // Percentage altitude converted to digital
-    uint32_t currentAltitudeDig; // ADC voltage representation between 0 - 4095
+    uint32_t referenceAltDig; // Percentage altitude converted to digital
+    uint32_t currentAltDig; // ADC voltage representation between 0 - 4095
     int32_t referenceAltPercent; // Percentage value between 0 and 100
     uint8_t mainMotorPWMDuty;
 } OperatingData_t;
