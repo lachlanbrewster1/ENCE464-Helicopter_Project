@@ -44,7 +44,7 @@ static uint16_t landed_ref;      // Landed reference of the helicopter
 
 
 // FreeRTOS structures.
-extern xSemaphoreHandle g_pUARTSemaphore;
+extern xSemaphoreHandle g_pUARTMutex;
 extern xQueueHandle g_adcReadQueue;
 
 
@@ -58,15 +58,15 @@ adcTriggerTask(void *pvParameters)
 {
 
 
-    //xSemaphoreTake(g_pUARTSemaphore, BLOCK_TIME_MAX);
+    //xSemaphoreTake(g_pUARTMutex, BLOCK_TIME_MAX);
     //UARTprintf("ADCTask starting.\n");
-    //xSemaphoreGive(g_pUARTSemaphore);
+    //xSemaphoreGive(g_pUARTMutex);
 
-    xSemaphoreTake(g_pUARTSemaphore, BLOCK_TIME_MAX);
+    xSemaphoreTake(g_pUARTMutex, BLOCK_TIME_MAX);
     char string[100];  // 100 characters across the display
     usnprintf (string, sizeof(string), "ADCTriggerTask starting.\r\n");
     UARTSend(string);
-    xSemaphoreGive(g_pUARTSemaphore);
+    xSemaphoreGive(g_pUARTMutex);
 
 
 
@@ -89,11 +89,11 @@ adcTriggerTask(void *pvParameters)
         // Get the single sample from ADC0.
         ADCSequenceDataGet(ADC0_BASE, 3, &ulValue);
 
-//        xSemaphoreTake(g_pUARTSemaphore, BLOCK_TIME_MAX);
+//        xSemaphoreTake(g_pUARTMutex, BLOCK_TIME_MAX);
 //        char string[31];
 //        usnprintf (string, sizeof(string), "ADC value: %d\r\n", ulValue);
 //        UARTSend(string);
-//        xSemaphoreGive(g_pUARTSemaphore);
+//        xSemaphoreGive(g_pUARTMutex);
 
         //
         // Place it in the circular buffer (advancing write index)

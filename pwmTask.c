@@ -89,29 +89,31 @@ pwmTask(void *pvParameters)
     // Loop forever
     while(1) {
 
-        uint8_t pwmValue;  
 
-        //
-        // Wait for data to be received
-        xQueueReceive(g_pwmWriteQueue, &pwmValue, BLOCK_TIME_MAX);
-
-        //
-        // Set duty cycle of rotor // Might need to scale it first? What kind of value is received?
-        setDutyCycle(pwmValue, MAIN_ROTOR);
+        // Get values from program status // TODO
+        uint8_t mainMotorPWMDuty;
+        uint8_t tailMotorPWMDuty;
 
 
         //
-        // Wait for the required amount of time.
-        //vTaskDelayUntil(&ui32WakeTime, ui32LEDToggleDelay / portTICK_RATE_MS);
+        // Set duty cycle of main and secondary rotor
+        // Might need to scale it first? What kind of value is received?
+        setDutyCycle(mainMotorPWMDuty, MAIN_ROTOR);
+        setDutyCycle(tailMotorPWMDuty, SECONDARY_ROTOR);
 
-        // OR -----------------------------------------
 
-        //
-        // Wait for the required amount of time to check back.
-        //vTaskDelayUntil(&ui16LastTime, ui32SwitchDelay / portTICK_RATE_MS);
+//        uint8_t pwmValue;
+//
+//        //
+//        // Wait for data to be received
+//        xQueueReceive(g_pwmWriteQueue, &pwmValue, BLOCK_TIME_MAX);
+//
+//        //
+//        // Set duty cycle of rotor // Might need to scale it first? What kind of value is received?
+//        setDutyCycle(pwmValue, MAIN_ROTOR);
+
 
     }
-
 
 
 }

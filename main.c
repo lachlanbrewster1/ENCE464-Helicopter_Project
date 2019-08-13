@@ -49,6 +49,7 @@
 #include "switch_task.h"
 #include "adcQueueTask.h"
 #include "adcTriggerTask.h"
+#include "uartTriggerTask.h"
 
 #include "uart.h"
 
@@ -65,13 +66,19 @@
 
 //*****************************************************************************
 // FreeRTOS structures used by program. Includes The mutex that protects
-// concurrent access of UART from multiple tasks, Queue for ADC task
+// concurrent access of UART from multiple tasks, Queue for ADC and PWM task,
+// and queue for adc and button events
 //*****************************************************************************
 xQueueHandle g_adcReadQueue;
 xQueueHandle g_pwmWriteQueue;
 xQueueHandle g_pwmReadQueue;
 
-xSemaphoreHandle g_pUARTSemaphore;
+xQueueHandle g_buttonAdcEventQueue;
+xSemaphoreHandle g_queueMutex;        // Mutex to guard the event queue from being modified
+
+xSemaphoreHandle g_pUARTMutex;      // Mutex to guard the UART.
+xSemaphoreHandle g_adcConvSemaphore;    // Flag to signal the ADC value is ready to be written to buffer
+
 
 
 
@@ -137,8 +144,22 @@ main(void)
     g_adcReadQueue = xQueueCreate(DATA_QUEUE_LENGTH, DATA_QUEUE_ITEM_SIZE);
     g_pwmReadQueue = xQueueCreate(DATA_QUEUE_LENGTH, DATA_QUEUE_ITEM_SIZE);
     g_pwmWriteQueue = xQueueCreate(DATA_QUEUE_LENGTH, DATA_QUEUE_ITEM_SIZE);
-    g_pUARTSemaphore = xSemaphoreCreateMutex(); // Mutex to guard the UART.
 
+    gt_g_buttonAdcEventQueue = xQueueCreate(DATA_QUEUE_LENGTH, DATA_QUEUE_ITEM_SIZE);
+
+    g_pUARTMutex = xSemaphoreCreateMutex();
+    g_adcConvSemaphore = xSemaphoreCreateSemaphore();
+
+
+    //
+    // Create the UART task.
+    if(uartTaskInit() != 0)
+    {
+
+        while(1)
+        {
+        }
+    }
 
     //
     // Create the LED task.
@@ -179,6 +200,7 @@ main(void)
         {
         }
     }
+
 
     //
     // Start the scheduler.  This should not return.

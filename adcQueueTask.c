@@ -44,7 +44,8 @@ static uint16_t landed_ref;      // Landed reference of the helicopter
 
 
 // FreeRTOS structures.
-extern xSemaphoreHandle g_pUARTSemaphore;
+extern xSemaphoreHandle g_pUARTMutex;
+extern xSemaphoreHandle g_adcConvSemaphore;
 extern xQueueHandle g_adcReadQueue;
 
 
@@ -61,11 +62,11 @@ adcQueueTask(void *pvParameters)
     // ADCTrigger task triggers ADC conversion, sets semaphore/flag indicating it is ready to be written to the circular buffer
     // ADCQueue task stores the value in the circular buffer upon seeing the flag set then resets the flag
 
-    xSemaphoreTake(g_pUARTSemaphore, BLOCK_TIME_MAX);
+    xSemaphoreTake(g_pUARTMutex, BLOCK_TIME_MAX);
     char string[100];  // 100 characters across the display
     usnprintf (string, sizeof(string), "ADCQueueTask starting.\r\n");
     UARTSend(string);
-    xSemaphoreGive(g_pUARTSemaphore);
+    xSemaphoreGive(g_pUARTMutex);
 
 
 
