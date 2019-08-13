@@ -78,14 +78,10 @@ typedef enum displaymodes_e {Altitude, ADCMean, OFF} displayModes;
 
 typedef struct operating_data_t_s {
     HeliMode mode;
-    int32_t referenceYaw;
-    uint32_t referenceAltitude;
-    volatile int32_t currentYaw; // yaw position counter (No. of state changes)
-    uint32_t currentAltitude; // ADC sample value from 0 to 4095
+    uint32_t referenceAltitudeDig; // Percentage altitude converted to digital
+    uint32_t currentAltitudeDig; // ADC voltage representation between 0 - 4095
+    int32_t referenceAltPercent; // Percentage value between 0 and 100
     uint8_t mainMotorPWMDuty;
-    uint8_t tailMotorPWMDuty;
-    int32_t referenceYawDeg;
-    int32_t referenceAltPercent;
 } OperatingData_t;
 
 /* Name of buttons, switch and ADC event write queue: g_butsADCEventQueue */
