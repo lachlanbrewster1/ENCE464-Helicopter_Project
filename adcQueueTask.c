@@ -75,13 +75,14 @@ adcQueueTask(void *pvParameters)
     while(1) {
 
 
-        if (adcTriggerFlag) {
+        if (g_adcConvSemaphore) {       // If flag is set // TODO
 
             //
             // Place it in the circular buffer (advancing write index)
             writeCircBuf (&g_inBuffer, ulValue);
 
             // Reset adcTriggerFlag
+            g_adcConvSemaphore = 0;       // TODO what value to set it to?
         }
 
 
