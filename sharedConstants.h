@@ -26,6 +26,7 @@
 #define BUF_SIZE 30
 #define NOISE_MARGIN 15
 #define YAW_MARGIN 12
+#define MAX_ADC_VALUE 4095 
 // Below is for converting from the 1.0 volt range to its proportion in 0-4095
 #define HELI_OFFSET_FULL 1240
 #define NUM_DEGS_REVOLUTION 360
@@ -80,7 +81,7 @@ typedef struct operating_data_t_s {
     HeliMode mode;
     uint32_t referenceAltDig; // Percentage altitude converted to digital
     uint32_t currentAltDig; // ADC voltage representation between 0 - 4095
-    int32_t referenceAltPercent; // Percentage value between 0 and 100
+    uint8_t referenceAltPercent; // Percentage value between 0 and 100
     uint8_t mainMotorPWMDuty;
 } OperatingData_t;
 
