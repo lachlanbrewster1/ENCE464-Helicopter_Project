@@ -39,11 +39,6 @@ extern xSemaphoreHandle g_pUARTSemaphore;
 
 /* Global, module-specific, non-FreeRTOS defines */
 
-//static bool but_state[NUM_BUTS];	// Corresponds to the electrical state
-//static uint8_t but_count[NUM_BUTS];
-//static bool but_flag[NUM_BUTS];
-//static bool but_normal[NUM_BUTS];   // Corresponds to the electrical state
-
 /* Tiva board up button object instance */
 static buttonSwitch_t g_up_button = 
 {
@@ -359,7 +354,7 @@ ButtonsSwitchTask (void *pvParameters)
             // Append event message to the queue
             if (xQueueSend (g_pLEDQueue, &eventMessage, portMAX_DELAY) != pdPASS)
             {
-                // Oh shit, the queue is full. Disastrous. Should never happen.
+                // Queue is full - not good. Should never happen
                 xSemaphoreTake (g_pUARTSemaphore, portMAX_DELAY);
                 UARTprintf("\nQueue full. This should never happen.\n");
                 xSemaphoreGive (g_pUARTSemaphore);

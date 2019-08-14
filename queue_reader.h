@@ -11,16 +11,14 @@
 //
 //
 // Author: Jozef Crosland | jrc149 | 49782422
-// Last modified:  13/08/2019
+// Last modified:  14/08/2019
 //
 // *******************************************************
 
 #include <stdint.h>
-#include <stdbool.h>
 
-//*****************************************************************************
-// Constants
-//*****************************************************************************
+/* Enumerated type identifying each of the hardware event
+types - button event, switch event or ADC event */
 typedef enum hw_evt_type_e
 {
 	INVALID_EVENT_TYPE = -1,
@@ -29,15 +27,22 @@ typedef enum hw_evt_type_e
 	SLIDER_PUSH_DOWN_EVENT,
 	SLIDER_PUSH_UP_EVENT,
 	ADC_BUFFER_UPDATED_EVENT,
-	NUM_HW_EVENT_TYPES
+	NUM_VALID_HW_EVENT_TYPES,
+	NUM_ALL_HW_EVENT_TYPES
 } hwEvent_t;
 
-
+/* Structure that contains the hardware event type and the
+most recent ADC buffer average */
 typedef struct hw_evt_queue_item_e
 {
 	hwEvent_t eventType;
 	uint32_t adcBufferAverage;
 } hwEventQueueItem_t;
+
+/* Update the reference percentage altitude in the program status object.
+This function is also used by the controller task. */
+static void
+updateProgramStatusRefAlt (OperatingData_t *programStatus, bool doIncrease);
 
 
 extern uint32_t HWEventQueueReaderTaskInit (void); 
