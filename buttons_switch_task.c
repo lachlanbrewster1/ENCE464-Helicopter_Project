@@ -14,9 +14,15 @@
 // 
 // *******************************************************
 
-#include "buttons_switch_task.h"
+/* Put stdint and stdbool includes before everything else */
 #include <stdint.h>
 #include <stdbool.h>
+
+/* Custom application includes */
+#include "buttons_switch_task.h"
+#include "queue_reader.h"
+
+/* Tivaware hardware pertinent includes */
 #include "inc/hw_memmap.h"
 #include "inc/hw_types.h"
 #include "inc/hw_gpio.h"
@@ -24,6 +30,8 @@
 #include "driverlib/sysctl.h"
 #include "driverlib/debug.h"
 #include "inc/tm4c123gh6pm.h"
+
+/* FreeRTOS includes */
 #include "priorities.h"
 #include "FreeRTOS.h"
 #include "task.h"
@@ -34,7 +42,7 @@
 /* FreeRTOS task specific defines */
 #define BUTTONSSWITCHTASKSTACKSIZE      128
 #define BUTTONSSWITCHTASKPOLLDELAY      25
-extern xQueueHandle g_pLEDQueue;
+extern xQueueHandle g_butsADCEventQueue;
 extern xSemaphoreHandle g_pUARTSemaphore;
 
 /* Global, module-specific, non-FreeRTOS defines */
@@ -303,7 +311,7 @@ ButtonsSwitchTask (void *pvParameters)
 {
     portTickType ui16LastTime;
     uint32_t ui32PollDelay = 25;
-    butEvents_t eventMessage;
+    hwEventQueueItem_t eventItem;
 
     // Get the current tick count.
     ui16LastTime = xTaskGetTickCount();
@@ -321,7 +329,7 @@ ButtonsSwitchTask (void *pvParameters)
         // Determine message to append to queue
         if ((upButtonPushed && downButtonPushed))
         {
-            eventMessage = UP_AND_DOWN_BUTTON_PUSHED;
+            eventItem.eventType = UP_AND_DOWN_BUTTON_PUSH_EVENT;
             // Guard UART from concurrent access
             xSemaphoreTake (g_pUARTSemaphore, portMAX_DELAY);
             UARTprintf ("Up and down buttons are pressed.\n");
@@ -329,7 +337,7 @@ ButtonsSwitchTask (void *pvParameters)
         }
         else if (upButtonPushed && !(downButtonPushed))
         {
-            eventMessage = UP_BUTTON_PUSHED;
+            eventItem.eventType = UP_BUTTON_PUSH_EVENT;
             // Guard UART from concurrent access
             xSemaphoreTake (g_pUARTSemaphore, portMAX_DELAY);
             UARTprintf ("Up button is pressed.\n");
@@ -337,7 +345,7 @@ ButtonsSwitchTask (void *pvParameters)
         }
         else if (!(upButtonPushed) && downButtonPushed)
         {
-            eventMessage = DOWN_BUTTON_PUSHED;
+            eventItem.eventType = DOWN_BUTTON_PUSH_EVENT;
             // Guard UART from concurrent access
             xSemaphoreTake (g_pUARTSemaphore, portMAX_DELAY);
             UARTprintf ("Down button is pressed.\n");
@@ -345,14 +353,14 @@ ButtonsSwitchTask (void *pvParameters)
         }
         else
         {
-            eventMessage = NO_EVENT;
+            eventMessage = NO_HW_EVENT;
         }
 
         // Only append message to the queue if a button was pushed
-        if (eventMessage != NO_EVENT)
+        if (eventMessage != NO_HW_EVENT)
         {
             // Append event message to the queue
-            if (xQueueSend (g_pLEDQueue, &eventMessage, portMAX_DELAY) != pdPASS)
+            if (xQueueSend (g_butsADCEventQueue, &eventMessage, portMAX_DELAY) != pdPASS)
             {
                 // Queue is full - not good. Should never happen
                 xSemaphoreTake (g_pUARTSemaphore, portMAX_DELAY);
@@ -371,6 +379,7 @@ ButtonsSwitchTask (void *pvParameters)
     }
     
 }
+
 
 /* Initialises the peripherals, ports and pins used by the specified buttons and switches in this module */
 uint32_t ButtonsSwitchTaskInit (void)
