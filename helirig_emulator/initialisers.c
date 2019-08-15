@@ -10,13 +10,15 @@
 //
 // *****************************************************************************
 
+#include <stdint.h>
+#include <stdbool.h>
 #include "../inc/hw_memmap.h" // Macros for the different ports and peripherals defined here.
 #include "../driverlib/pin_map.h" // Definitions of pin addresses
 #include "../driverlib/adc.h"
 #include "../driverlib/gpio.h"
 #include "../driverlib/sysctl.h"
 #include "../driverlib/systick.h"
-#include "../initialisers.h"
+#include "initialisers.h"
 #include "mainProg.h"
 
 // *****************************************************************************
@@ -50,6 +52,13 @@ peripheralReset(void)
 {
     // Reset GPIOA peripheral (used by SSI0 peripheral)
     SysCtlPeripheralReset (SYSCTL_PERIPH_GPIOA);
+
+    // Reset GPIOA peripheral (Used for Chip Select on the DAC)
+    SysCtlPeripheralReset (SYSCTL_PERIPH_GPIOC);
+
+    // Reset GPIOA peripheral (Used for timer)
+    SysCtlPeripheralReset (SYSCTL_PERIPH_GPIOC);
+
     // Reset SSI peripheral
     SysCtlPeripheralReset (SYSCTL_PERIPH_SSI0);
 }

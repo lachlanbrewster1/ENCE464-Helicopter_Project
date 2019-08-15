@@ -22,20 +22,13 @@
 #include "../driverlib/systick.h" //      }
 #include "../driverlib/interrupt.h" //   }
 #include "../driverlib/ssi.h"
-#include "../initialisers.h"
-#include "../sharedConstantsTypes.h"
+#include "../driverlib/pwm.h"
+#include "initialisers.h"
+#include "sharedConstantsTypes.h"
 #include "mainProg.h"
 #include "../inc/tm4c123gh6pm.h"
 #include "../inc/hw_types.h"
 #include "../driverlib/timer.h"
-
-
-#include "../inc/hw_ints.h"
-#include "../driverlib/pwm.h"
-#include "../driverlib/debug.h"
-#include "../utils/ustdlib.h"
-#include "../driverlib/uart.h"
-
 
 
 //Input Edge Time Capture include and defines
@@ -44,19 +37,17 @@ volatile double duty = 0, start = 0, stop = 0;
 #define PWM_DIVIDER_CODE     SYSCTL_PWMDIV_4
 #define SAMPLE_RATE_HZ     250
 #define SYSTICK_RATE_HZ    100    // SysTick interrupt config.
-static uint32_t g_ulSampCnt;
-
 
 
 //DAC related includes
 #define DAC_WRITE_CMD_NGA_NSHDN_2048 0x3800
-#define DAC_CMD_ARRAY_LENGTH 4
+#define DAC_CMD_ARRAY_LENGTH 12
 static const uint32_t dacWriteCmdValue = 0x00003800; // First four zeros are redundant
 #define DAC_CMD_LENGTH_W_RDDT_BITS 16
 
 
 //Helicopter model related includes and globals
-volatile double current_height = 0;     //Current height of the helicopter initialised to zero
+volatile double g_current_height = 0;     //Current height of the helicopter initialised to zero
 
 
 //*****************************************************************************
@@ -66,7 +57,11 @@ void initClock (void);
 void SysTickIntHandler(void);
 void helicopterHeight (void);
 void initTimer (void);
+void initDACSignals (void);
+void timer_int (void);
 void dutyCycle (void);
+int conversion (void);
+void DAC_Inputs (int16_t bits);
 
 // ----------------------------------------------------------------------------
 // Start of interrupt handler definitions
@@ -161,60 +156,6 @@ void dutyCycle (void);
 //    }
 //}
 
-//*****************************************************************************
-// Initialisation functions for the clock (incl. SysTick), ADC, display
-//*****************************************************************************
-void
-initClock (void)
-{
-    // Set the clock rate to 20 MHz
-    SysCtlClockSet (SYSCTL_SYSDIV_10 | SYSCTL_USE_PLL | SYSCTL_OSC_MAIN |
-                   SYSCTL_XTAL_16MHZ);
-    // Set up the period for the SysTick timer
-    SysTickPeriodSet(SysCtlClockGet() / SAMPLE_RATE_HZ);
-    SysTickIntRegister(SysTickIntHandler);
-    SysCtlPWMClockSet(PWM_DIVIDER_CODE);
-    SysTickIntEnable();
-    SysTickEnable();
-}
-
-//*****************************************************************************
-// Interrupt handler for the SysTick interrupt.
-//*****************************************************************************
-void
-SysTickIntHandler(void)
-{
-    // Initiate a conversion
-    ADCProcessorTrigger(ADC0_BASE, 3);
-    g_ulSampCnt++;
-}
-
-
-//*****************************************************************************
-// This is attempt 1 to model the behaviour of the helicopter
-//*****************************************************************************
-/*void
-helicopterHeight (double main_thrust)
-{
-    //Effect of the main rotor on the height of the helicopter.
-    //Equation from discretising is (5*z^2)/(5*z^2 + 0.5z)
-    double main_rotor_thrust;
-    main_rotor_thrust = (5*main_thrust*main_thrust)/(5*main_thrust*main_thrust + 0.5*main_thrust);
-
-    //Main Force vs PWM LUT
-    //Going to use a generic scalar of 10.
-    main_rotor_thrust = main_rotor_thrust * 10;
-
-    //Effect of Gravity
-    //Assuming that the mass of the helicopter is 0.25 kg
-    //Therefore, force g = 0.25*9.81 = 2.4525
-    main_rotor_thrust = main_rotor_thrust - 2.4525;
-
-    //Effect from the helicopter mount
-    //Equation from discretising is 1.5*((10*z^2)/(10*z^2 + 3*z))
-    current_height = 1.5*((10*main_rotor_thrust*main_rotor_thrust)/(10*main_rotor_thrust*main_rotor_thrust + 3*main_rotor_thrust));
-}*/
-
 
 
 //*****************************************************************************
@@ -224,7 +165,7 @@ void
 helicopterHeight (void)
 {
     //Force due to weight is a changing quantity which is influenced from the current height of the helicopter.
-    double weight_force = 0.2 + current_height/100;
+    double weight_force = 0.2 + g_current_height/100;
 
     //Effective thrust is the force of the motor minus the weight force
     double thrust = duty - (weight_force * 100);
@@ -238,16 +179,18 @@ helicopterHeight (void)
     }
 
     //change in height is the effective thrust multiplied by the sampling rate
-    current_height += acceleration * SAMPLE_RATE_HZ; //This is the change in height calculation
+    g_current_height += acceleration * SAMPLE_RATE_HZ; //This is the change in height calculation
 
-    if (current_height < 0) {
-        current_height = 0;
+    if (g_current_height < 0) {
+        g_current_height = 0;
     }
 
-    if (current_height > 100) {
-        current_height = 100;
+    if (g_current_height > 100) {
+        g_current_height = 100;
     }
 }
+
+
 
 //*****************************************************************************
 // Function to initalise all the required features to measure duty cycle of input PWM signal
@@ -256,6 +199,7 @@ void
 initTimer(void)
 {
     //Calls to initialise Interrupts and PWM reads
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOC);
     GPIOIntRegister (GPIO_PORTC_BASE, dutyCycle);
     GPIOPinTypeGPIOInput (GPIO_PORTC_BASE, GPIO_PIN_4);
     GPIOIntTypeSet (GPIO_PORTC_BASE, GPIO_INT_PIN_4, GPIO_BOTH_EDGES);
@@ -263,11 +207,62 @@ initTimer(void)
 
     //Initalise Timer
     SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER0);
-    TimerConfigure(TIMER0_BASE, TIMER_CFG_A_CAP_TIME);
+    TimerConfigure(TIMER0_BASE, TIMER_CFG_PERIODIC);
+    TimerIntRegister(TIMER0_BASE, TIMER_A, timer_int);
+    TimerEnable(TIMER0_BASE, TIMER_A);
+    IntEnable(INT_TIMER0A);
+    TimerIntEnable(TIMER0_BASE, TIMER_TIMA_TIMEOUT);
+}
 
 
+
+//*****************************************************************************
+// Function to initalise all the required signals for the DAC
+//*****************************************************************************
+void
+initDACSignals (void)
+{
+    //For the Chip Select Signal (PIN 2), SCK (PIN 4) and LDAC (PIN 5)
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOB);
+    GPIOPinConfigure(SYSCTL_PERIPH_GPIOB);
+    GPIOPinTypeGPIOOutput(GPIO_PORTB_BASE, GPIO_PIN_2 | GPIO_PIN_4 | GPIO_PIN_5);
+
+    //Send clock signal for the SCK line
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_PWM0);
+    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOC);
+    GPIOPinConfigure(GPIO_PC5_M0PWM7);
+    GPIOPinTypePWM(GPIO_PORTC_BASE, GPIO_PIN_5);
+    SysCtlPWMClockSet (SYSCTL_PWMDIV_4);
+
+    PWMGenConfigure(PWM0_BASE, PWM_GEN_3,
+                    PWM_GEN_MODE_UP_DOWN | PWM_GEN_MODE_NO_SYNC);
+
+    // Set the initial PWM parameters
+    // Calculate the PWM period corresponding to the freq.
+    uint32_t ui32Period =
+        SysCtlClockGet() / 4 / 250;
+
+    PWMGenPeriodSet(PWM0_BASE, PWM_GEN_3, ui32Period);
+    PWMPulseWidthSet(PWM0_BASE, PWM_OUT_7,
+        ui32Period * 50 / 100);
+
+
+    PWMGenEnable(PWM0_BASE, PWM_GEN_3);
 
 }
+
+
+
+//*****************************************************************************
+// Interrupt handler for the timer
+//*****************************************************************************
+void
+timer_int (void)
+{
+    TimerIntClear(TIMER0_BASE, TIMER_TIMA_TIMEOUT);
+}
+
+
 
 //*****************************************************************************
 // Function calculate the duty cycle of the input PWM signal
@@ -276,7 +271,7 @@ void
 dutyCycle(void)
 {
     //When negative edge is hit, record the values and find the difference
-    int32_t state = GPIOPinRead(GPIO_PORTC_BASE, GPIO_PIN_4);
+    int8_t state = GPIOPinRead(GPIO_PORTC_BASE, GPIO_PIN_4);
 
     //If the signal is a leading edge
     if (state == 1) {
@@ -289,6 +284,48 @@ dutyCycle(void)
 
     GPIOIntClear(GPIO_PORTC_BASE, GPIO_INT_PIN_4);
 }
+
+
+
+//*****************************************************************************
+// converts the data into a suitable format for the DAC
+//*****************************************************************************
+int
+conversion (void)
+{
+    double voltage = 2 - g_current_height/100;
+
+    int16_t bits = 8190 - 4095*voltage;
+
+    return bits;
+}
+
+
+
+//*****************************************************************************
+// Functions to change all the signals of the DAC
+//*****************************************************************************
+void
+DAC_Inputs (int16_t bits)
+{
+    //Set Chip Select to Low for the transmission of the Data
+    GPIOPinWrite (GPIO_PORTB_BASE, GPIO_PIN_2, 0);
+
+    //Set the LDAC signal to High
+    GPIOPinWrite (GPIO_PORTB_BASE, GPIO_PIN_5, 1);
+
+    //Send the Bits of data to the SDI
+    bits = conversion();
+    bits += 4096; //This is equivalent to 0001 0000 0000 0000 which is used to set the bits of the headers for the 12-bit DAC
+    SSIDataPut(SSI0_BASE, bits);
+
+
+    //Rest the Chip Select and LDAC lines
+    GPIOPinWrite (GPIO_PORTB_BASE, GPIO_PIN_2, 1);
+    GPIOPinWrite (GPIO_PORTB_BASE, GPIO_PIN_5, 0);
+}
+
+
 
 int
 main (void)
@@ -307,30 +344,36 @@ main (void)
     }
 
     // Configuring the SSI
-    SSIConfigSetExpClk (SSI0_BASE, SysCtlClockGet (), SSI_FRF_MOTO_MODE_0,
-                        SSI_MODE_MASTER, 2000000, 4);
+    SSIConfigSetExpClk (SSI0_BASE, SysCtlClockGet(), SSI_FRF_MOTO_MODE_0,
+                        SSI_MODE_MASTER, 2000000, 16);
 
     // Enable the SSI module
     SSIEnable (SSI0_BASE);
 
-    // Send DAC command
-    uint8_t ui8Idx;
-    char *pcChars = "DACA";
-    // Loop and send this string infinitely
+
 
     //Configure to receive input PWM signals
     initTimer();
 
-    TimerEnable(TIMER0_BASE, TIMER_BOTH);
+    //Initalise all the DAC signals. That is the Chip Select and LDAC
+    initDACSignals();
+
+    g_current_height = 60;
+
+    //local variable for the bits sent to the DAC
+    int16_t bits;
 
     while(true)
     {
-        for (ui8Idx = 0; ui8Idx < DAC_CMD_ARRAY_LENGTH; ui8Idx++)
+        /*for (ui8Idx = 0; ui8Idx < DAC_CMD_ARRAY_LENGTH; ui8Idx++)
         {
-            SSIDataPut (SSI0_BASE, pcChars[ui8Idx]);
-        }
+            if (ui8Idx == 12) {
+                SSIDataPut (SSI0_BASE, pcChars[ui8Idx]);
+            } else if
+        }*/
+        //helicopterHeight ();
 
-        helicopterHeight ();
+        DAC_Inputs(bits);
     }
 }
 
