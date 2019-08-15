@@ -38,7 +38,7 @@ static uint16_t landed_ref;      // Landed reference of the helicopter
 #define ADCTASKSTACKSIZE        128         // Stack size in words
 
 // TEMPORARY // TODO
-//#define PRIORITY_ADC_TASK       3
+//#define PRIORITY_ADC_QUEUE_TASK       3
 //#define BLOCK_TIME_MAX          1
 
 
@@ -46,7 +46,7 @@ static uint16_t landed_ref;      // Landed reference of the helicopter
 // FreeRTOS structures.
 extern xSemaphoreHandle g_pUARTMutex;
 extern xSemaphoreHandle g_adcConvSemaphore;
-extern xQueueHandle g_adcReadQueue;
+extern xQueueHandle g_buttsAdcEventQueue;
 
 
 
@@ -69,33 +69,50 @@ adcQueueTask(void *pvParameters)
     xSemaphoreGive(g_pUARTMutex);
 
 
+    // butEvents_t eventMessage;
+    uint32_t meanADCValue;
+
 
     //
     // Loop forever
     while(1) {
 
+        // eventMessage = ADC_BUFFER_UPDATED_EVENT;
 
         if (g_adcConvSemaphore) {       // If flag is set // TODO
 
-            //
-            // Place it in the circular buffer (advancing write index)
-            writeCircBuf (&g_inBuffer, ulValue);
+
+            // Calculate average
+            meanADCValue = calculateMeanHeight();
+
+//            // Append event message to the queue
+//            if (xQueueSend (g_buttsAdcEventQueue, &eventMessage, portMAX_DELAY) != pdPASS)
+//            {
+//                // Queue is full - not good. Should never happen
+//                xSemaphoreTake (g_pUARTMutex, portMAX_DELAY);
+//                UARTprintf("\nQueue full. This should never happen.\n");
+//                xSemaphoreGive (g_pUARTMutex);
+//                while(1)
+//                {
+//                    // Infinite loop
+//                }
+//        }
+
+
+
+
+            // Put item on event queue    hw_evt_queue_item_e, which contains ADC_BUFFER_UPDATED_EVENT and uint32_t adcBufferAverag
 
             // Reset adcTriggerFlag
-            g_adcConvSemaphore = 0;       // TODO what value to set it to?
+            // g_adcConvSemaphore = 0;       // TODO what value to set it to?
         }
 
 
         //
         // Clean up, clearing the interrupt
         ADCIntClear(ADC0_BASE, 3);
-        //
-        // Add the ADC read to queue.
-        xQueueSend(g_adcReadQueue, &ulValue, BLOCK_TIME_MAX);
-
 
     }
-
 
 }
 
@@ -112,9 +129,9 @@ adcQueueTaskInit(void)
 
     //
     // Create the ADC task.
-    if(xTaskCreate(adcTask, (const portCHAR *)"ADC",
+    if(xTaskCreate(adcQueueTask, (const portCHAR *)"ADC",
                    ADCTASKSTACKSIZE, NULL, tskIDLE_PRIORITY +
-                   PRIORITY_ADC_TASK, NULL) != pdTRUE)
+                   PRIORITY_ADC_TRIGGER_TASK, NULL) != pdTRUE)
     {
         return(1);
     }
@@ -126,6 +143,28 @@ adcQueueTaskInit(void)
 
 }
 
+
+
+
+
+//*****************************************************************************
+// Calculate and return the rounded mean of the buffer contents
+//*****************************************************************************
+uint32_t
+calculateMeanHeight(void)
+{
+    uint32_t sum = 0;
+    uint16_t i = 0;
+
+    for ( i = 0; i < BUF_SIZE; i++)
+            sum = sum + readCircBuf (&g_inBuffer);
+
+    // Calculate the rounded mean of the buffer contents
+    uint32_t mean = (2 * sum + BUF_SIZE) / 2 / BUF_SIZE;
+
+    // return (2 * (100 * (landed_ref - mean)) + 1000) / 2 / 1000; //100% *(our new height) / 1000mV
+    return mean;
+}
 
 
 

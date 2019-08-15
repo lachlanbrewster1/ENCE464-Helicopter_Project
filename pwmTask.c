@@ -50,7 +50,7 @@
 //#define BLOCK_TIME_MAX          1
 
 // FreeRTOS structures.
-extern xSemaphoreHandle g_pUARTSemaphore;
+extern xSemaphoreHandle g_pUARTMutex;
 extern xQueueHandle g_pwmWriteQueue;
 
 
@@ -61,28 +61,12 @@ extern xQueueHandle g_pwmWriteQueue;
 static void
 pwmTask(void *pvParameters)
 {
-
-    portTickType ui32WakeTime;
-
-    //
-    // Get the current tick count.
-    ui32WakeTime = xTaskGetTickCount();
-
-
-    // OR -----------------------------------------
-
-    portTickType ui16LastTime;
-
-    //
-    // Get the current tick count.
-    ui16LastTime = xTaskGetTickCount();
     
-    
-    xSemaphoreTake(g_pUARTSemaphore, BLOCK_TIME_MAX);
+    xSemaphoreTake(g_pUARTMutex, BLOCK_TIME_MAX);
     char string[100];  // 100 characters across the display
     usnprintf (string, sizeof(string), "PWMTask starting.\r\n");
     UARTSend(string);
-    xSemaphoreGive(g_pUARTSemaphore);
+    xSemaphoreGive(g_pUARTMutex);
 
 
     //
@@ -91,15 +75,15 @@ pwmTask(void *pvParameters)
 
 
         // Get values from program status // TODO
-        uint8_t mainMotorPWMDuty;
-        uint8_t tailMotorPWMDuty;
+        uint32_t mainMotorPWMDuty = 30;
+        //uint8_t tailMotorPWMDuty;
 
 
         //
         // Set duty cycle of main and secondary rotor
         // Might need to scale it first? What kind of value is received?
         setDutyCycle(mainMotorPWMDuty, MAIN_ROTOR);
-        setDutyCycle(tailMotorPWMDuty, SECONDARY_ROTOR);
+        //setDutyCycle(tailMotorPWMDuty, SECONDARY_ROTOR);
 
 
 //        uint8_t pwmValue;
@@ -195,6 +179,7 @@ initPWM (void)
 void
 setDutyCycle (uint32_t ui32Duty, uint8_t rotor)
 {
+
     // Calculate the PWM period corresponding to the freq.
     uint32_t ui32Period =
         SysCtlClockGet() / PWM_FIXED_RATE_HZ;
@@ -202,6 +187,13 @@ setDutyCycle (uint32_t ui32Duty, uint8_t rotor)
     if (rotor == MAIN_ROTOR){
         PWMPulseWidthSet(PWM_MAIN_BASE, PWM_MAIN_OUTNUM,
         ui32Period * ui32Duty / 100);
+
+//        xSemaphoreTake(g_pUARTMutex, BLOCK_TIME_MAX);
+//        char string[31];
+//        usnprintf (string, sizeof(string), "Set rotor duty cycle to: %d\r\n", ui32Duty);
+//        UARTSend(string);
+//        xSemaphoreGive(g_pUARTMutex);
+
     }
     else if (rotor == SECONDARY_ROTOR){
         PWMPulseWidthSet(PWM_SECONDARY_BASE, PWM_SECONDARY_OUTNUM,

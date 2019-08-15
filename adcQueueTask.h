@@ -24,6 +24,12 @@ adcQueueTaskInit(void);
 static void
 adcQueueTask(void *pvParameters);
 
+//*****************************************************************************
+// Calculate and return the rounded mean of the buffer contents
+//*****************************************************************************
+uint32_t
+calculateMeanHeight(void);
+
 
 
 #endif /* ADCQUEUETASK_H_ */

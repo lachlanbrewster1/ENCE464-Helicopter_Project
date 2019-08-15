@@ -49,7 +49,7 @@
 #include "switch_task.h"
 #include "adcQueueTask.h"
 #include "adcTriggerTask.h"
-#include "uartTriggerTask.h"
+#include "uartTask.h"
 
 #include "uart.h"
 
@@ -73,7 +73,7 @@ xQueueHandle g_adcReadQueue;
 xQueueHandle g_pwmWriteQueue;
 xQueueHandle g_pwmReadQueue;
 
-xQueueHandle g_buttonAdcEventQueue;
+xQueueHandle g_buttsAdcEventQueue;
 xSemaphoreHandle g_queueMutex;        // Mutex to guard the event queue from being modified
 
 xSemaphoreHandle g_pUARTMutex;      // Mutex to guard the UART.
@@ -141,49 +141,59 @@ main(void)
 
     //
     // Creating needed FreeRTOS structures
-    g_adcReadQueue = xQueueCreate(DATA_QUEUE_LENGTH, DATA_QUEUE_ITEM_SIZE);
-    g_pwmReadQueue = xQueueCreate(DATA_QUEUE_LENGTH, DATA_QUEUE_ITEM_SIZE);
-    g_pwmWriteQueue = xQueueCreate(DATA_QUEUE_LENGTH, DATA_QUEUE_ITEM_SIZE);
+    // g_adcReadQueue = xQueueCreate(DATA_QUEUE_LENGTH, DATA_QUEUE_ITEM_SIZE);
+    // g_pwmReadQueue = xQueueCreate(DATA_QUEUE_LENGTH, DATA_QUEUE_ITEM_SIZE);
+    // g_pwmWriteQueue = xQueueCreate(DATA_QUEUE_LENGTH, DATA_QUEUE_ITEM_SIZE);
 
-    gt_g_buttonAdcEventQueue = xQueueCreate(DATA_QUEUE_LENGTH, DATA_QUEUE_ITEM_SIZE);
+    g_buttsAdcEventQueue = xQueueCreate(DATA_QUEUE_LENGTH, DATA_QUEUE_ITEM_SIZE);
 
     g_pUARTMutex = xSemaphoreCreateMutex();
-    g_adcConvSemaphore = xSemaphoreCreateSemaphore();
+    g_adcConvSemaphore = xSemaphoreCreateMutex();
 
+
+//    //
+//    // Create the UART task.
+//    if(uartTaskInit() != 0)
+//    {
+//
+//        while(1)
+//        {
+//        }
+//    }
+
+//    //
+//    // Create the LED task.
+//    if(LEDTaskInit() != 0)
+//    {
+//
+//        while(1)
+//        {
+//        }
+//    }
+//
+//    //
+//    // Create the switch task.
+//    if(SwitchTaskInit() != 0)
+//    {
+//
+//        while(1)
+//        {
+//        }
+//    }
+
+//    //
+//    // Create the ADC queue task.
+//    if(adcQueueTaskInit() != 0)
+//    {
+//
+//        while(1)
+//        {
+//        }
+//    }
 
     //
-    // Create the UART task.
-    if(uartTaskInit() != 0)
-    {
-
-        while(1)
-        {
-        }
-    }
-
-    //
-    // Create the LED task.
-    if(LEDTaskInit() != 0)
-    {
-
-        while(1)
-        {
-        }
-    }
-
-    //
-    // Create the switch task.
-    if(SwitchTaskInit() != 0)
-    {
-
-        while(1)
-        {
-        }
-    }
-
-    //
-    // Create the ADC task.
-    if(adcTaskInit() != 0)
+    // Create the ADC trigger task.
+    if(adcTriggerTaskInit() != 0)
     {
 
         while(1)

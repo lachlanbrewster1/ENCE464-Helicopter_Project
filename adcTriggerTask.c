@@ -16,6 +16,9 @@
 #include "circBufT.h"
 #include "adcTriggerTask.h"
 
+// #include <windows.h> // for sleep()
+
+
 #include "stdio.h"
 #include "stdlib.h"
 
@@ -37,16 +40,10 @@ static uint16_t landed_ref;      // Landed reference of the helicopter
 //*****************************************************************************
 #define ADCTASKSTACKSIZE        128         // Stack size in words
 
-// TEMPORARY // TODO
-//#define PRIORITY_ADC_TASK       3
-//#define BLOCK_TIME_MAX          1
-
-
 
 // FreeRTOS structures.
 extern xSemaphoreHandle g_pUARTMutex;
-extern xQueueHandle g_adcReadQueue;
-
+extern xSemaphoreHandle g_adcConvSemaphore;
 
 
 //*****************************************************************************
@@ -57,11 +54,6 @@ static void
 adcTriggerTask(void *pvParameters)
 {
 
-
-    //xSemaphoreTake(g_pUARTMutex, BLOCK_TIME_MAX);
-    //UARTprintf("ADCTask starting.\n");
-    //xSemaphoreGive(g_pUARTMutex);
-
     xSemaphoreTake(g_pUARTMutex, BLOCK_TIME_MAX);
     char string[100];  // 100 characters across the display
     usnprintf (string, sizeof(string), "ADCTriggerTask starting.\r\n");
@@ -69,41 +61,43 @@ adcTriggerTask(void *pvParameters)
     xSemaphoreGive(g_pUARTMutex);
 
 
+    // TODO Create ISR and handler which triggers ADC conversion, ISR should be triggered at 300hz
 
     //
     // Loop forever
     while(1) {
 
-        // ADCIntHandler();    // old
-
         // Value to be read
         uint32_t ulValue;
 
-        // Trigger ADC conversion. // ISR?
+        // Trigger ADC conversion. // TODO to be done by ISR
         ADCProcessorTrigger(ADC0_BASE, 3);
-        //
-        // Wait for sample.
-        // while(!ADCIntStatus(ADC_BASE, ADC_SEQUENCE, false));
+
+        // Sleep(100)
 
         //
-        // Get the single sample from ADC0.
+        // Wait for sample
+        while(!ADCIntStatus(ADC0_BASE, 3, false));
+
+        //
+        // Get the single sample from ADC0 and write it to ulValue
         ADCSequenceDataGet(ADC0_BASE, 3, &ulValue);
 
-//        xSemaphoreTake(g_pUARTMutex, BLOCK_TIME_MAX);
-//        char string[31];
-//        usnprintf (string, sizeof(string), "ADC value: %d\r\n", ulValue);
-//        UARTSend(string);
-//        xSemaphoreGive(g_pUARTMutex);
+        xSemaphoreTake(g_pUARTMutex, BLOCK_TIME_MAX);
+        char string[31];
+        usnprintf (string, sizeof(string), "ADC value: %d\r\n", ulValue);
+        UARTSend(string);
+        xSemaphoreGive(g_pUARTMutex);
 
         //
         // Place it in the circular buffer (advancing write index)
         writeCircBuf (&g_inBuffer, ulValue);
+
+        // TODO set g_adcConvSemaphore flag/semaphore
+
         //
         // Clean up, clearing the interrupt
         ADCIntClear(ADC0_BASE, 3);
-        //
-        // Add the ADC read to queue.
-        xQueueSend(g_adcReadQueue, &ulValue, BLOCK_TIME_MAX);
 
 
     }
@@ -124,9 +118,9 @@ adcTriggerTaskInit(void)
 
     //
     // Create the ADC task.
-    if(xTaskCreate(adcTask, (const portCHAR *)"ADC",
+    if(xTaskCreate(adcTriggerTask, (const portCHAR *)"ADC",
                    ADCTASKSTACKSIZE, NULL, tskIDLE_PRIORITY +
-                   PRIORITY_ADC_TASK, NULL) != pdTRUE)
+                   PRIORITY_ADC_TRIGGER_TASK, NULL) != pdTRUE)
     {
         return(1);
     }
@@ -187,7 +181,7 @@ initADC (void)
 
     //
     // Register the interrupt handler
-    ADCIntRegister (ADC0_BASE, 3, ADCIntHandler);
+    // ADCIntRegister (ADC0_BASE, 3, ADCIntHandler);
 
     //
     // Enable interrupts for ADC0 sequence 3 (clears any outstanding interrupts)
@@ -195,25 +189,6 @@ initADC (void)
 }
 
 
-
-
-
-
-//*****************************************************************************
-// Calculate and return the rounded mean of the buffer contents
-//*****************************************************************************
-uint16_t
-calculateMeanHeight(void)
-{
-    uint32_t sum = 0;
-    uint16_t i = 0;
-
-    for ( i = 0; i < BUF_SIZE; i++)
-            sum = sum + readCircBuf (&g_inBuffer);
-        // Calculate and display the rounded mean of the buffer contents
-    uint16_t mean = (2 * sum + BUF_SIZE) / 2 / BUF_SIZE;
-    return (2 * (100 * (landed_ref - mean)) + 1000) / 2 / 1000; //100% *(our new height) / 1000mV
-}
 
 //*****************************************************************************
 // Set the landed reference of the helicopter.

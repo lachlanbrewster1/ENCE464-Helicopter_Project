@@ -37,12 +37,6 @@ void ADCIntHandler(void);
 void initADC (void);
 
 //*****************************************************************************
-// Calculate and return the rounded mean of the buffer contents
-//*****************************************************************************
-uint16_t
-calculateMeanHeight(void);
-
-//*****************************************************************************
 // Set the landed reference of the helicopter.
 // Uses the rounded mean of the circular buffer contents
 //*****************************************************************************

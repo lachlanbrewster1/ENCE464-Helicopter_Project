@@ -2,6 +2,8 @@
 #include <stdbool.h>
 
 #include <priorities.h>
+#include "priorities.h"
+
 
 #include "inc/hw_memmap.h"
 #include "inc/hw_types.h"
@@ -47,8 +49,6 @@
 
 // FreeRTOS structures.
 extern xSemaphoreHandle g_pUARTMutex;
-extern xQueueHandle g_adcReadQueue;
-
 
 
 //*****************************************************************************
@@ -90,7 +90,7 @@ uartTaskInit(void)
 {
     //
     // Initialize UART things
-    initialiseUSB_UART();
+    //initialiseUSB_UART();
 
     //
     // Create the UART task.
