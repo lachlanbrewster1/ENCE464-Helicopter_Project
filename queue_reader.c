@@ -33,7 +33,6 @@
 
 /* Queue handle and queue mutex handles which are to be initialized in this module. */
 xQueueHandle g_butsADCEventQueue;				// Accessed by the button switch and ADC update tasks and queue reader
-xSemaphoreHandle g_butsADCEventQueueSemaphore;	// Accessed by the button switch and ADC update tasks and queue reader
 
 
 /* Externally defined global variables, both FreeRTOS-specific and helicopter program specific */
@@ -44,14 +43,15 @@ extern OperatingData_t g_programStatus;			// Accessed by the queue reader, contr
 
 /* Debug strings used to print to serial in debug version of the executable */
 #ifdef DEBUG
-static const char* debugStrings[NUM_ALL_HW_EVENT_TYPES] =
+static const char* debugStrings[SLIDER_PUSH_UP_EVENT + 1] =
 {
 	"INVALID_EVENT_TYPE\n",
+	"NO_HW_EVENT\n",
 	"UP_BUTTON_PUSH_EVENT\n",
 	"DOWN_BUTTON_PUSH_EVENT\n",
+	"UP_AND_DOWN_BUTTON_PUSH_EVENT\n",
 	"SLIDER_PUSH_DOWN_EVENT\n",
-	"SLIDER_PUSH_UP_EVENT\n",
-	"ADC_BUFFER_UPDATED_EVENT\n"
+	"SLIDER_PUSH_UP_EVENT\n"
 };
 #endif
 
@@ -184,41 +184,42 @@ HWEventQueueReaderTask (void *pvParameters)
 				// Determine which hardware event occurred
 				switch (newQueueItem.eventType)
 				{
-					case UP_BUTTON_PUSH_EVENT:
-						// Increment reference altitude
-						updateProgramStatusRefAlt (&g_programStatus, true);
-						break;
-					case DOWN_BUTTON_PUSH_EVENT:
-						// Decrement reference altitude
-						updateProgramStatusRefAlt (&g_programStatus, false);
-						break;
-					/* Append switch event to the switch event queue */
-					case SLIDER_PUSH_DOWN_EVENT:
-					case SLIDER_PUSH_UP_EVENT:
-						/* Actually, this needs to write the slider switch event to
-						another queue (yet to be implemented). this queue will continuously
-						be read from at 1 kHz or so by a new task - the flight_mode_monitor
-						task. This will continuously monitor the flight mode so that the
-						state can be updated from landing to landed. */
-						hwEvent_t switchQueueMsg = newQueueItem.eventType;
-						if (xQueueSend (g_switchEventQueue, &switchQueueMsg, portMAX_DELAY) != pdPASS)
+				case UP_BUTTON_PUSH_EVENT:
+					// Increment reference altitude
+					updateProgramStatusRefAlt (&g_programStatus, true);
+					break;
+				case DOWN_BUTTON_PUSH_EVENT:
+					// Decrement reference altitude
+					updateProgramStatusRefAlt (&g_programStatus, false);
+					break;
+				/* Append switch event to the switch event queue */
+				case SLIDER_PUSH_DOWN_EVENT:
+				case SLIDER_PUSH_UP_EVENT:
+					/* Actually, this needs to write the slider switch event to
+					another queue (yet to be implemented). this queue will continuously
+					be read from at 1 kHz or so by a new task - the flight_mode_monitor
+					task. This will continuously monitor the flight mode so that the
+					state can be updated from landing to landed. */
+					hwEvent_t switchQueueMsg = newQueueItem.eventType;
+					if (xQueueSend (g_switchEventQueue, &switchQueueMsg, portMAX_DELAY) != pdPASS)
+					{
+						// Queue is full - not good. Should never happen
+						xSemaphoreTake (g_pUARTSemaphore, portMAX_DELAY);
+						UARTprintf ("\nSwitch event queue full. This should never happen.\n");
+						xSemaphoreGive (g_pUARTSemaphore);
+						while (1)
 						{
-							// Queue is full - not good. Should never happen
-							xSemaphoreTake (g_pUARTSemaphore, portMAX_DELAY);
-							UARTprintf ("\nSwitch event queue full. This should never happen.\n");
-							xSemaphoreGive (g_pUARTSemaphore);
-							while (1)
-							{
-								// Infinite loop
-							}
+							// Infinite loop
 						}
-						break;
-					case ADC_BUFFER_UPDATED_EVENT:
-						// Update current altitude in digital representation
-						updateProgramStatusCurAlt (&g_programStatus, newQueueItem.adcBufferAverage);
-						break;
-					default:
-						break;
+					}
+					break;
+				case ADC_BUFFER_UPDATED_EVENT:
+					// Update current altitude in digital representation
+					updateProgramStatusCurAlt (&g_programStatus, newQueueItem.adcBufferAverage);
+					break;
+				default:
+					// In case of no hardware event (NO_HW_EVENT), do nothing
+					break;
 				}
 			}
 				// Optional debug statements
