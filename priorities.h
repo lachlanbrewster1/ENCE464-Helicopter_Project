@@ -36,5 +36,9 @@
 #define PRIORITY_SWITCH_TASK            2
 #define PRIORITY_LED_TASK               1
 
+#define PRIORITY_UART_TASK      5
+#define PRIORITY_ADC_TASK       6
+#define PRIORITY_PWM_TASK       7
+
 
 #endif // __PRIORITIES_H__
