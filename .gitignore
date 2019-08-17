@@ -27,4 +27,8 @@ tm4c1231h6pm_startup_ccs.c
 *.cmd
 makefile.defs
 Untitled.code-workspace
+.jxbrowser-data
+.metadata
+freertos_demo/
+RemoteSystemsTempFiles
 

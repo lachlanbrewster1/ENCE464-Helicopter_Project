@@ -94,7 +94,8 @@ ui32CapToGivenBoundType (uint32_t inputValue, uint32_t boundValue, bool isUpperB
 }
 
 
-/* Update the reference percentage altitude in the program status object. */
+/* Update the reference percentage altitude in the program status object.
+ * NOT STATIC - this needs to be visible to the controller module */
 static void
 updateProgramStatusRefAlt (OperatingData_t *programStatus, bool doIncrease)
 {
@@ -120,7 +121,7 @@ updateProgramStatusRefAlt (OperatingData_t *programStatus, bool doIncrease)
 		}
 		if (currRefAltDig > MAX_ALTITUDE_ADC)
 		{
-			newRefAltPct = ui32CapToGivenBoundType ((currRefAltDig - ALTITUDE_INCREMENT_ADC),
+			newRefAltDig = ui32CapToGivenBoundType ((currRefAltDig - ALTITUDE_INCREMENT_ADC),
 													MAX_ALTITUDE_ADC, false);
 		}
 		
@@ -136,7 +137,7 @@ updateProgramStatusRefAlt (OperatingData_t *programStatus, bool doIncrease)
 		}
 		if (currRefAltDig < MIN_ALTITUDE_ADC)
 		{
-			newRefAltPct = ui32CapToGivenBoundType ((currRefAltDig + ALTITUDE_INCREMENT_ADC),
+			newRefAltDig = ui32CapToGivenBoundType ((currRefAltDig + ALTITUDE_INCREMENT_ADC),
 													MIN_ALTITUDE_ADC, true);
 		}
 	}
@@ -195,13 +196,7 @@ HWEventQueueReaderTask (void *pvParameters)
 				/* Append switch event to the switch event queue */
 				case SLIDER_PUSH_DOWN_EVENT:
 				case SLIDER_PUSH_UP_EVENT:
-					/* Actually, this needs to write the slider switch event to
-					another queue (yet to be implemented). this queue will continuously
-					be read from at 1 kHz or so by a new task - the flight_mode_monitor
-					task. This will continuously monitor the flight mode so that the
-					state can be updated from landing to landed. */
-					hwEvent_t switchQueueMsg = newQueueItem.eventType;
-					if (xQueueSend (g_switchEventQueue, &switchQueueMsg, portMAX_DELAY) != pdPASS)
+					if (xQueueSend (g_switchEventQueue, &(newQueueItem.eventType), portMAX_DELAY) != pdPASS)
 					{
 						// Queue is full - not good. Should never happen
 						xSemaphoreTake (g_pUARTSemaphore, portMAX_DELAY);
@@ -244,15 +239,12 @@ HWEventQueueReaderTask (void *pvParameters)
 
 
 /* Initializes queue in this module and the task. No hardware initialization takes places as this task has no interaction with hardware */
-uint32_t 
+uint32_t
 HWEventQueueReaderTaskInit (void)
 {
 	
 	// Initialise the hardware event queue
 	g_butsADCEventQueue = xQueueCreate (HWEVENT_QUEUE_SIZE, HWEVENT_ITEM_SIZE);
-	
-	// Initialise the hardware event queue mutex
-	g_butsADCEventQueueSemaphore = xSemaphoreCreateMutex ();
 	
     // Create the buttons switches task
     if (xTaskCreate (HWEventQueueReaderTask, 

@@ -3,7 +3,7 @@
 
 // *******************************************************
 //
-// queue_reader.c
+// queue_reader.h
 //
 // Definition of the hardware event queue reader task. This
 // task reads the queue at a fixed frequency and updates the
@@ -15,7 +15,10 @@
 //
 // *******************************************************
 
+
 #include <stdint.h>
+#include "sharedConstants.h"
+
 
 /* Enumerated type identifying each of the hardware event
 types - button event, switch event or ADC event */
@@ -33,20 +36,24 @@ typedef enum hw_evt_type_e
 	NUM_ALL_HW_EVENT_TYPES
 } hwEvent_t;
 
+
 /* Structure that contains the hardware event type and the
 most recent ADC buffer average */
 typedef struct hw_evt_queue_item_e
 {
-	hwEvent_t eventType;
+	hwEvent_t buttonADCEventType;
+	hwEvent_t switchEventType;
 	uint32_t adcBufferAverage;
 } hwEventQueueItem_t;
 
+
 /* Update the reference percentage altitude in the program status object.
 This function is also used by the controller task. */
-static void
+extern void
 updateProgramStatusRefAlt (OperatingData_t *programStatus, bool doIncrease);
 
 
-extern uint32_t HWEventQueueReaderTaskInit (void); 
+extern uint32_t
+HWEventQueueReaderTaskInit (void);
 
 #endif /*QUEUE_READER_H*/

@@ -100,7 +100,7 @@ typedef struct button_switch_s_t
 #define SLIDER_ONE_PERIPH SYSCTL_PERIPH_GPIOA
 #define SLIDER_ONE_PORT_BASE GPIO_PORTA_BASE
 #define SLIDER_ONE_PIN GPIO_PIN_7
-#define SLIDER_ONE_ACTIVE_HIGH false
+#define SLIDER_ONE_ACTIVE_HIGH true
 #define SLIDER_ONE_GPIO_STRENGTH GPIO_STRENGTH_2MA
 #define SLIDER_ONE_GPIO_TYPE GPIO_PIN_TYPE_STD_WPD
 
@@ -127,19 +127,19 @@ initAllButtonSwitchObjs (void);
  Returns the current button event status of the button object
  */
 butStates_t
-getButtonEventState (buttonSwitch_t *but_obj);
+getButtonEventState (const buttonSwitch_t *but_obj);
 
 /* Returns true if the current button event state is PUSHED, false otherwise
  */
 bool
-isButtonEventStatePushed (buttonSwitch_t *but_obj);
+isButtonEventStatePushed (const buttonSwitch_t *but_obj);
 
 /*
 Determines whether a button event is a pushed one or a released event.
 This is only called if the polls pass the debounce threshold
  */
 butStates_t
-updateButtonEventState (buttonSwitch_t *but_obj);
+updateButtonEventState (const buttonSwitch_t *but_obj);
 
 /* Reads in the logic level of the button object passed in regardless of whether it's button or switch instance.
 If it's a switch instance, only the logic level of the pin is read and updated. Otherwise, debouncing is performed on the button instance and the button event is updated if in fact it has been pressed for long enough or if it has been released */

@@ -40,12 +40,16 @@
 #define FROM_LOW_YAW			0
 #define FROM_HIGH_YAW			448000
 
-#define PWM_SATURATION			95
-#define CONT_TIME_STEP			0.01
-#define INIT_ALT_INTG_ERROR		1600
-#define ZERO_INIT_INTG_ERROR	0
-#define NUM_GAINS_PID			3
-#define NOISE_MARGIN			30
+#define PWM_SATURATION			    95
+#define CONT_TIME_STEP			    0.01
+#define INIT_ALT_INTG_ERROR		    1600
+#define ZERO_INIT_INTG_ERROR	    0
+#define NUM_GAINS_PID			    3
+#define PROPORTIONAL_GAIN           1500.0
+#define INTEGRAL_GAIN               450.0
+#define DERIVATIVE_GAIN             350.0
+#define NOISE_MARGIN                15
+#define NEAR_LANDED_NOISE_MARGIN    (NOISE_MARGIN / 2)
 
 
 /* Queue handle and queue mutex handles which are to be initialized in this module. */
@@ -56,7 +60,7 @@ xSemaphoreHandle g_initAltADCValueSemaphore;
 
 /* Externally defined global variables, both FreeRTOS-specific and helicopter program specific */
 extern xSemaphoreHandle g_pUARTSemaphore;		// Accessed by most tasks
-extern operatingData_t g_programStatus;			// Accessed by the queue reader, controller, PWM and UART tasks
+extern OperatingData_t g_programStatus;			// Accessed by the queue reader, controller, PWM and UART tasks
 
 
 /* Debug strings used to print to serial in debug version of the executable */
@@ -66,22 +70,14 @@ static const char* upEventString = "SLIDER_PUSH_UP_EVENT\n";
 #endif
 
 
-/* PID gains for the altitude controller */
-static const float altitudeGains[NUM_GAINS_PID] = 
-{
-	1500.0,		// Proportional
-	450.0,		// Integral
-	350.0		// Derivative
-};
-
 /* Control data structure used for the altitude controller.
 Initialized with the gains and initial integral error */
 static ControlData_t g_altControlData = 
 {
-	.dt = CONT_TIME_STEP;
-	.kp = altitudeGains[0];
-	.ki = altitudeGains[1];
-	.kd = altitudeGains[2];
+	.dt = CONT_TIME_STEP,
+	.kp = PROPORTIONAL_GAIN,
+	.ki = INTEGRAL_GAIN,
+	.kd = DERIVATIVE_GAIN,
 	.intError = INIT_ALT_INTG_ERROR
 };
 
@@ -94,16 +90,6 @@ mapToMainDuty (uint32_t controllerOutput)
 	/ (FROM_HIGH_ALT - FROM_LOW_ALT) + TO_LOW;
 	
 	return ((uint8_t) result);
-}
-
-
-/* Updates the altitude controller */
-static void
-updateController (OperatingData_t* status, ControlData_t* altData)
-{
-	// Compute error and pass into controller
-	int32_t altError = status->referenceAltDig - status->currentAltDig;
-	status->mainMotorPWMDuty = controllerAlt (altError, status->mainMotorPWMDuty, altData, status);
 }
 
 
@@ -154,6 +140,16 @@ controllerAlt (int32_t error, uint8_t currentPWM, ControlData_t* data, Operating
 }
 
 
+/* Updates the altitude controller */
+static void
+updateController (OperatingData_t* status, ControlData_t* altData)
+{
+    // Compute error and pass into controller
+    int32_t altError = status->referenceAltDig - status->currentAltDig;
+    status->mainMotorPWMDuty = controllerAlt (altError, status->mainMotorPWMDuty, altData, status);
+}
+
+
 /* Returns true if the input event type is a slider switch event type */
 static bool
 isEventTypeSlider (hwEvent_t eventType)
@@ -170,8 +166,8 @@ reference altitude. Ultimately ensures a smooth landing sequence. */
 static bool
 isWithinRefMargins (OperatingData_t* programInfo, uint8_t altMarg)
 {
-	uint32_t tempCurrAlt = programInfo->currentAltitudeDig;
-	uint32_t tempRefAltDig = programInfo->referenceAltitudeDig;
+	uint32_t tempCurrAlt = programInfo->currentAltDig;
+	uint32_t tempRefAltDig = programInfo->referenceAltDig;
 	bool altCheckLanded = (tempCurrAlt >= tempRefAltDig - altMarg) 
 							&& (tempCurrAlt <= tempRefAltDig + altMarg);
 
@@ -215,20 +211,19 @@ updateFlightModeIfLanding (OperatingData_t* programInfo)
 	{
 		/* If currently landing and has met the landed criteria, then
 		set mode to landed */
-		if ((isWithinLandedCriteria (programInfo))
+		if (isWithinLandedCriteria (programInfo, g_landedAltitudeADCValue))
 		{
 			programInfo->mode = landed;
 		}
 		/* Otherwise helicopter hasn't quite met landed criteria and 
 		the reference altitude should be further decremented */
-		else if (isWithinRefMargins (programInfo))
+		else if (isWithinRefMargins (programInfo, NOISE_MARGIN))
 		{
 			/* Decrement the reference altitude further as part
 			of the landing sequence */
 			updateProgramStatusRefAlt (programInfo, false);
 		}
 	}
-	
 }
 
 
@@ -259,7 +254,7 @@ ControllerTask (void *pvParameters)
 			if (isEventTypeSlider (newQueueItem))
 			{
 				// Update flight mode if necessary
-				updateFlightModeOnSwitchEvent (&g_programStatus, hwEvent_t);
+				updateFlightModeOnSwitchEvent (&g_programStatus, newQueueItem);
 				
 				// Optional debug statements
 				#if DEBUG
@@ -301,7 +296,7 @@ ControllerTaskInit (void)
 	This binary semaphore is taken by the ADC task during program
 	initialisation and is never given back - since the initial
 	altitude ADC value is only measured once and only once. */
-	g_initAltADCValueSemaphore = vSemaphoreCreateBinary ();
+	g_initAltADCValueSemaphore = xSemaphoreCreateBinary ();
 	
     // Create the buttons switches task
     if (xTaskCreate (ControllerTask, 

@@ -43,6 +43,7 @@
 #define BUTTONSSWITCHTASKSTACKSIZE      128
 #define BUTTONSSWITCHTASKPOLLDELAY      25
 extern xQueueHandle g_butsADCEventQueue;
+extern xQueueHandle g_pLEDQueue;
 extern xSemaphoreHandle g_pUARTSemaphore;
 
 /* Global, module-specific, non-FreeRTOS defines */
@@ -138,22 +139,25 @@ initAllButtonSwitchObjs (void)
  Returns the current button event status of the button object
  */
 butStates_t
-getButtonEventState (buttonSwitch_t *but_obj)
+getButtonEventState (const buttonSwitch_t *but_obj)
 {
     return (but_obj->but_evt_state);
 }
 
+
 /* Returns the current switch event status of the switch object
  */
 switchStates_t
-getSwitchEventState (buttonSwitch_t *sw_obj)
+getSwitchEventState (const buttonSwitch_t *sw_obj)
 {
     return (sw_obj->sw_evt_state);
 }
+
+
 /* Returns true if the current button event state is PUSHED, false otherwise
  */
 bool
-isButtonEventStatePushed (buttonSwitch_t *but_obj)
+isButtonEventStatePushed (const buttonSwitch_t *but_obj)
 {
     return ((getButtonEventState (but_obj) == PUSHED) ? true : false);
 }
@@ -164,7 +168,7 @@ Determines whether a button event is a pushed one or a released event.
 This is only called if the polls pass the debounce threshold
  */
 butStates_t
-updateButtonEventState (buttonSwitch_t *but_obj)
+updateButtonEventState (const buttonSwitch_t *but_obj)
 {
     butStates_t retVal;
     if (but_obj->current_button_state == but_obj->is_active_high)
@@ -277,7 +281,7 @@ If it's a switch instance, only the logic level of the pin is read and updated.
 Otherwise, debouncing is performed on the button instance and the button event is updated if in fact it has been pressed for long enough or if it has been released.
 If the parameter instance is a switch, then a slightly different debouncing function is called specifically designed for the switch
 */
-void 
+void
 updateButtonSwitchObj (buttonSwitch_t *but_sw_obj)
 {
     /* Check the logic level regardless of whether it's a button or switch instance */ 
@@ -325,11 +329,15 @@ ButtonsSwitchTask (void *pvParameters)
         // Get button event states from both the up and down button
         bool upButtonPushed = isButtonEventStatePushed (&g_up_button);
         bool downButtonPushed = isButtonEventStatePushed (&g_down_button);
+        bool sliderSwitchPushedUp = (getSwitchEventState (&g_slider_switch_one)
+                                        == PUSHED_UP) ? true : false;
+        bool sliderSwitchPushedDown = (getSwitchEventState (&g_slider_switch_one)
+                                        == PUSHED_DOWN) ? true : false;
 
         // Determine message to append to queue
         if ((upButtonPushed && downButtonPushed))
         {
-            eventItem.eventType = UP_AND_DOWN_BUTTON_PUSH_EVENT;
+            eventItem.buttonADCEventType = UP_AND_DOWN_BUTTON_PUSH_EVENT;
             // Guard UART from concurrent access
             xSemaphoreTake (g_pUARTSemaphore, portMAX_DELAY);
             UARTprintf ("Up and down buttons are pressed.\n");
@@ -337,7 +345,7 @@ ButtonsSwitchTask (void *pvParameters)
         }
         else if (upButtonPushed && !(downButtonPushed))
         {
-            eventItem.eventType = UP_BUTTON_PUSH_EVENT;
+            eventItem.buttonADCEventType = UP_BUTTON_PUSH_EVENT;
             // Guard UART from concurrent access
             xSemaphoreTake (g_pUARTSemaphore, portMAX_DELAY);
             UARTprintf ("Up button is pressed.\n");
@@ -345,7 +353,7 @@ ButtonsSwitchTask (void *pvParameters)
         }
         else if (!(upButtonPushed) && downButtonPushed)
         {
-            eventItem.eventType = DOWN_BUTTON_PUSH_EVENT;
+            eventItem.buttonADCEventType = DOWN_BUTTON_PUSH_EVENT;
             // Guard UART from concurrent access
             xSemaphoreTake (g_pUARTSemaphore, portMAX_DELAY);
             UARTprintf ("Down button is pressed.\n");
@@ -353,14 +361,38 @@ ButtonsSwitchTask (void *pvParameters)
         }
         else
         {
-            eventMessage = NO_HW_EVENT;
+            // There has been no button event this time
+            eventItem.buttonADCEventType = NO_HW_EVENT;
         }
 
-        // Only append message to the queue if a button was pushed
-        if (eventMessage != NO_HW_EVENT)
+        // Switch events can happen at the same time as button events
+        if (sliderSwitchPushedUp)
+        {
+            eventItem.switchEventType = SLIDER_PUSH_UP_EVENT;
+            // Guard UART from concurrent access
+            xSemaphoreTake (g_pUARTSemaphore, portMAX_DELAY);
+            UARTprintf ("Slider switch pushed up.\n");
+            xSemaphoreGive (g_pUARTSemaphore);
+        }
+        else if (sliderSwitchPushedDown)
+        {
+            eventItem.switchEventType = SLIDER_PUSH_DOWN_EVENT;
+            // Guard UART from concurrent access
+            xSemaphoreTake (g_pUARTSemaphore, portMAX_DELAY);
+            UARTprintf ("Slider switch pushed down.\n");
+            xSemaphoreGive (g_pUARTSemaphore);
+        }
+        else
+        {
+            eventItem.switchEventType = NO_HW_EVENT;
+        }
+
+        // Only append message to the queue if any event occurred
+        if ((eventItem.buttonADCEventType != NO_HW_EVENT) ||
+                (eventItem.switchEventType != NO_HW_EVENT))
         {
             // Append event message to the queue
-            if (xQueueSend (g_butsADCEventQueue, &eventMessage, portMAX_DELAY) != pdPASS)
+            if (xQueueSend (g_pLEDQueue, &eventItem, portMAX_DELAY) != pdPASS)
             {
                 // Queue is full - not good. Should never happen
                 xSemaphoreTake (g_pUARTSemaphore, portMAX_DELAY);
@@ -382,12 +414,18 @@ ButtonsSwitchTask (void *pvParameters)
 
 
 /* Initialises the peripherals, ports and pins used by the specified buttons and switches in this module */
-uint32_t ButtonsSwitchTaskInit (void)
+uint32_t
+ButtonsSwitchTaskInit (void)
 {
     /* Initialise all of the peripherals, ports and pins used by the switches and buttons */
     initAllButtonSwitchObjs ();
     // Create the buttons switches task
-    if (xTaskCreate (ButtonsSwitchTask, (const portCHAR *)"Buttons Switch", BUTTONSSWITCHTASKSTACKSIZE, NULL, tskIDLE_PRIORITY + PRIORITY_BUTTONS_SWITCH_TASK, NULL) != pdTRUE)
+    if (xTaskCreate (ButtonsSwitchTask,
+                     (const portCHAR *)"Buttons Switch",
+                     BUTTONSSWITCHTASKSTACKSIZE,
+                     NULL,
+                     tskIDLE_PRIORITY + PRIORITY_BUTTONS_SWITCH_TASK,
+                     NULL) != pdTRUE)
     {
         return (1);
     }
