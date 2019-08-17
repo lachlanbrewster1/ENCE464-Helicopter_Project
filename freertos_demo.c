@@ -33,7 +33,7 @@
 #include "driverlib/uart.h"
 #include "utils/uartstdio.h"
 #include "led_task.h"
-#include "switch_task.h"
+#include "buttons_switch_task.h"
 #include "FreeRTOS.h"
 #include "task.h"
 #include "queue.h"
@@ -194,7 +194,7 @@ main(void)
     //
     // Create the switch task.
     //
-    if(SwitchTaskInit() != 0)
+    if(ButtonsSwitchTaskInit() != 0)
     {
 
         while(1)

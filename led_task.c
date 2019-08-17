@@ -32,6 +32,8 @@
 #include "drivers/buttons.h"
 #include "utils/uartstdio.h"
 #include "led_task.h"
+#include "buttons_switch_task.h"
+#include "queue_reader.h"
 #include "priorities.h"
 #include "FreeRTOS.h"
 #include "task.h"
@@ -50,7 +52,7 @@
 // The item size and queue size for the LED message queue.
 //
 //*****************************************************************************
-#define LED_ITEM_SIZE           sizeof(uint8_t)
+#define LED_ITEM_SIZE           sizeof(hwEventQueueItem_t)
 #define LED_QUEUE_SIZE          5
 
 //*****************************************************************************
@@ -59,6 +61,8 @@
 //
 //*****************************************************************************
 #define LED_TOGGLE_DELAY        250
+#define LED_OFF_HEX_VALUE       0x0000
+#define LED_ON_HEX_VALUE        0x8000
 
 //*****************************************************************************
 //
@@ -70,7 +74,13 @@ xQueueHandle g_pLEDQueue;
 //
 // [G, R, B] range is 0 to 0xFFFF per color.
 //
-static uint32_t g_pui32Colors[3] = { 0x0000, 0x0000, 0x0000 };
+typedef enum rgb_led_index_e {
+    RED_INDEX,
+    GREEN_INDEX,
+    BLUE_INDEX
+} rgbLEDIndex_t;
+
+static uint32_t g_pui32Colors[3] = { LED_OFF_HEX_VALUE };
 static uint8_t g_ui8ColorsIndx;
 
 extern xSemaphoreHandle g_pUARTSemaphore;
@@ -86,7 +96,7 @@ LEDTask(void *pvParameters)
 {
     portTickType ui32WakeTime;
     uint32_t ui32LEDToggleDelay;
-    uint8_t i8Message;
+    hwEventQueueItem_t queueEventType;
 
     //
     // Initialize the LED Toggle Delay to default value.
@@ -106,64 +116,67 @@ LEDTask(void *pvParameters)
         //
         // Read the next message, if available on queue.
         //
-        if(xQueueReceive(g_pLEDQueue, &i8Message, 0) == pdPASS)
+        if(xQueueReceive(g_pLEDQueue, &queueEventType, 0) == pdPASS)
         {
             //
-            // If left button, update to next LED.
+            // If up button, update to next LED.
             //
-            if(i8Message == LEFT_BUTTON)
+            if(queueEventType.buttonADCEventType == UP_BUTTON_PUSH_EVENT)
             {
-                //
-                // Update the LED buffer to turn off the currently working.
-                //
-                g_pui32Colors[g_ui8ColorsIndx] = 0x0000;
 
-                //
-                // Update the index to next LED
-                g_ui8ColorsIndx++;
-                if(g_ui8ColorsIndx > 2)
-                {
-                    g_ui8ColorsIndx = 0;
-                }
+                // Update the LED buffer to turn off represent disabling the red LED and turning on the blue LED
+                g_pui32Colors[RED_INDEX] = LED_OFF_HEX_VALUE;
+                g_pui32Colors[BLUE_INDEX] = LED_ON_HEX_VALUE;
+                g_pui32Colors[GREEN_INDEX] = LED_OFF_HEX_VALUE;
 
-                //
-                // Update the LED buffer to turn on the newly selected LED.
-                //
-                g_pui32Colors[g_ui8ColorsIndx] = 0x8000;
 
-                //
                 // Configure the new LED settings.
-                //
                 RGBColorSet(g_pui32Colors);
-
-                //
-                // Guard UART from concurrent access. Print the currently
-                // blinking LED.
-                //
-                xSemaphoreTake(g_pUARTSemaphore, portMAX_DELAY);
-                UARTprintf("Led %d is blinking. [R, G, B]\n", g_ui8ColorsIndx);
-                xSemaphoreGive(g_pUARTSemaphore);
             }
 
-            //
-            // If right button, update delay time between toggles of led.
-            //
-            if(i8Message == RIGHT_BUTTON)
+            // If down button, update delay time between toggles of led.
+            else if(queueEventType.buttonADCEventType == DOWN_BUTTON_PUSH_EVENT)
             {
-                ui32LEDToggleDelay *= 2;
-                if(ui32LEDToggleDelay > 1000)
-                {
-                    ui32LEDToggleDelay = LED_TOGGLE_DELAY / 2;
-                }
+                // Update the LED buffer to turn off represent disabling the blue LED and turning on the red LED
+                g_pui32Colors[RED_INDEX] = LED_ON_HEX_VALUE;
+                g_pui32Colors[BLUE_INDEX] = LED_OFF_HEX_VALUE;
+                g_pui32Colors[GREEN_INDEX] = LED_OFF_HEX_VALUE;
 
-                //
-                // Guard UART from concurrent access. Print the currently
-                // blinking frequency.
-                //
-                xSemaphoreTake(g_pUARTSemaphore, portMAX_DELAY);
-                UARTprintf("Led blinking frequency is %d ms.\n",
-                           (ui32LEDToggleDelay * 2));
-                xSemaphoreGive(g_pUARTSemaphore);
+                // Configure the new LED settings.
+                RGBColorSet(g_pui32Colors);
+
+            }
+
+            else if (queueEventType.buttonADCEventType == UP_AND_DOWN_BUTTON_PUSH_EVENT)
+            {
+                // Update the LED buffer to go purple
+                g_pui32Colors[RED_INDEX] = LED_ON_HEX_VALUE;
+                g_pui32Colors[BLUE_INDEX] = LED_ON_HEX_VALUE;
+                g_pui32Colors[GREEN_INDEX] = LED_OFF_HEX_VALUE;
+
+                // Configure the new LED settings.
+                RGBColorSet(g_pui32Colors);
+            }
+
+            if (queueEventType.switchEventType == SLIDER_PUSH_UP_EVENT)
+            {
+                // Update the LED buffer to represent a cyan LED
+                g_pui32Colors[RED_INDEX] = LED_OFF_HEX_VALUE;
+                g_pui32Colors[BLUE_INDEX] = LED_ON_HEX_VALUE;
+                g_pui32Colors[GREEN_INDEX] = LED_ON_HEX_VALUE;
+
+                // Configure the new LED settings.
+                RGBColorSet(g_pui32Colors);
+            }
+            else if (queueEventType.switchEventType == SLIDER_PUSH_DOWN_EVENT)
+            {
+                // Update the LED buffer to represent a green LED
+                g_pui32Colors[RED_INDEX] = LED_OFF_HEX_VALUE;
+                g_pui32Colors[BLUE_INDEX] = LED_OFF_HEX_VALUE;
+                g_pui32Colors[GREEN_INDEX] = LED_ON_HEX_VALUE;
+
+                // Configure the new LED settings.
+                RGBColorSet(g_pui32Colors);
             }
         }
 
