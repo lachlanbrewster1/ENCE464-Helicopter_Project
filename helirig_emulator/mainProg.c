@@ -4,9 +4,9 @@
 // over SPI using the SSI peripheral. Originally borrowed from the 361 helicopter
 // projects
 //
-// Authors:  J.R Crosland- UCECE
+// Authors:  J.R Crosland and Greg Bates - UCECE
 // Created: 05/04/2018
-// Last modified:   29/07/2019
+// Last modified:   17/08/2019
 //
 //*****************************************************************************
 
@@ -14,6 +14,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <math.h>
 #include "../inc/hw_memmap.h" // Macros for the different ports and peripherals defined here.
 #include "../driverlib/pin_map.h" // Definitions of pin addresses
 #include "../driverlib/adc.h" //         }
@@ -29,10 +30,18 @@
 #include "../inc/tm4c123gh6pm.h"
 #include "../inc/hw_types.h"
 #include "../driverlib/timer.h"
+#include "../inc/hw_ints.h"
 
+//Flags for the Timer
+uint32_t g_ui32Flags;
+volatile uint32_t g_ui32IntCount;
 
 //Input Edge Time Capture include and defines
-volatile double duty = 0, start = 0, stop = 0;
+volatile double g_duty = 0, g_start = 0, g_stop = 0;
+volatile double g_duty_prev = 0;
+
+volatile int32_t state = 0;
+
 #define PWM_Frequency 250 //Hz
 #define PWM_DIVIDER_CODE     SYSCTL_PWMDIV_4
 #define SAMPLE_RATE_HZ     250
@@ -47,14 +56,61 @@ static const uint32_t dacWriteCmdValue = 0x00003800; // First four zeros are red
 
 
 //Helicopter model related includes and globals
+#define GRAVITY       10
+#define WEIGHT        0.08
+#define DELTA_T       0.004
+
 volatile double g_current_height = 0;     //Current height of the helicopter initialised to zero
+volatile double g_prev_height = 0;
+
+volatile double g_MR_t = 0;
+volatile double g_MR_t_prev = 0;
+
+volatile double g_Force = 0;
+
+volatile double g_G_t = 0;
+volatile double g_G_t_prev = 0;
+
+volatile double g_HM_t = 0;
+volatile double g_HM_t_prev = 0;
+
+
+
+//Look-up Table
+struct LUT_PWM
+{
+    int PWM;
+    double force;
+};
+
+static struct LUT_PWM LUT_PWM_DATA[] =
+{
+    { 0 , 0 },
+    { 5 , 0.0268 },
+    { 10 , 0.1609 },
+    { 15 , 0.3142 },
+    { 20 , 0.4748 },
+    { 25 , 0.6190 },
+    { 30 , 0.7626 },
+    { 35 , 0.8796 },
+    { 40 , 1.0104 },
+    { 45 , 1.1098 },
+    { 50 , 1.2155 },
+    { 55 , 1.3227 },
+    { 60 , 1.4339 },
+    { 65 , 1.5124 },
+    { 70 , 1.6039 },
+    { 75 , 1.6824 },
+    { 80 , 1.7707 }
+};
+
+//enum { NUM_LUT_PWM = sizeof(LUT_PWM_DATA) / sizeof(LUT_PWM_DATA[1]) };
+
 
 
 //*****************************************************************************
 // Local prototypes
 //*****************************************************************************
-void initClock (void);
-void SysTickIntHandler(void);
 void helicopterHeight (void);
 void initTimer (void);
 void initDACSignals (void);
@@ -164,30 +220,43 @@ void DAC_Inputs (int16_t bits);
 void
 helicopterHeight (void)
 {
-    //Force due to weight is a changing quantity which is influenced from the current height of the helicopter.
-    double weight_force = 0.2 + g_current_height/100;
+    //Constants
+    double k_1 = 1;
+    double t_1 = 0.1;
+    double k_2 = 1.53;
+    double t_2 = 0.638;
 
-    //Effective thrust is the force of the motor minus the weight force
-    double thrust = duty - (weight_force * 100);
+    //Main Rotor part of the Heli Rig Model
+    g_MR_t = g_MR_t_prev*(1 - DELTA_T/t_1) + k_1*g_duty_prev/t_1;
 
-    //Acceleration is dependent upon the effective thrust of the motor
-    double acceleration = ((thrust*thrust)/400);
+    //LUT stuff
+    //uint32_t index = 0;
+    //index = round(85*g_MR_t/8000);
+    //index = 85*g_MR_t/8000;
+    g_Force = LUT_PWM_DATA[index].force;
 
-    //Check the direction
-    if (thrust < 0) {
-        acceleration = -acceleration;
-    }
+    //Gravitational force on the system effect on Heli Rig Model
+    g_G_t = g_Force - GRAVITY * WEIGHT;
 
-    //change in height is the effective thrust multiplied by the sampling rate
-    g_current_height += acceleration * SAMPLE_RATE_HZ; //This is the change in height calculation
+    //Helicopter Mount part of the Heli Rig Model
+    g_HM_t = g_HM_t_prev*(1 - DELTA_T/t_2) + k_2*g_G_t_prev/t_2;
 
-    if (g_current_height < 0) {
+    //Integrator Limited
+    g_current_height += g_HM_t*DELTA_T;
+
+    //Keep safes incase of the worst extremes
+    if(g_current_height < 0) {
         g_current_height = 0;
-    }
-
-    if (g_current_height > 100) {
+    } else if (g_current_height > 100) {
         g_current_height = 100;
     }
+
+    //Update the Variables.
+    g_duty_prev = g_duty;
+    g_MR_t_prev = g_MR_t;
+    g_G_t_prev = g_G_t;
+    g_HM_t_prev = g_HM_t;
+
 }
 
 
@@ -199,19 +268,23 @@ void
 initTimer(void)
 {
     //Calls to initialise Interrupts and PWM reads
+
     SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOC);
+
+    while(!SysCtlPeripheralReady(SYSCTL_PERIPH_GPIOC))
+    {
+    }
     GPIOIntRegister (GPIO_PORTC_BASE, dutyCycle);
     GPIOPinTypeGPIOInput (GPIO_PORTC_BASE, GPIO_PIN_4);
     GPIOIntTypeSet (GPIO_PORTC_BASE, GPIO_INT_PIN_4, GPIO_BOTH_EDGES);
     GPIOIntEnable(GPIO_PORTC_BASE, GPIO_INT_PIN_4);
 
+
     //Initalise Timer
     SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER0);
-    TimerConfigure(TIMER0_BASE, TIMER_CFG_PERIODIC);
-    TimerIntRegister(TIMER0_BASE, TIMER_A, timer_int);
+    TimerConfigure(TIMER0_BASE, TIMER_CFG_A_PERIODIC_UP);
+    TimerControlEvent(TIMER0_BASE, TIMER_A, TIMER_EVENT_BOTH_EDGES);
     TimerEnable(TIMER0_BASE, TIMER_A);
-    IntEnable(INT_TIMER0A);
-    TimerIntEnable(TIMER0_BASE, TIMER_TIMA_TIMEOUT);
 }
 
 
@@ -226,29 +299,6 @@ initDACSignals (void)
     SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOB);
     GPIOPinConfigure(SYSCTL_PERIPH_GPIOB);
     GPIOPinTypeGPIOOutput(GPIO_PORTB_BASE, GPIO_PIN_2 | GPIO_PIN_4 | GPIO_PIN_5);
-
-    //Send clock signal for the SCK line
-    SysCtlPeripheralEnable(SYSCTL_PERIPH_PWM0);
-    SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOC);
-    GPIOPinConfigure(GPIO_PC5_M0PWM7);
-    GPIOPinTypePWM(GPIO_PORTC_BASE, GPIO_PIN_5);
-    SysCtlPWMClockSet (SYSCTL_PWMDIV_4);
-
-    PWMGenConfigure(PWM0_BASE, PWM_GEN_3,
-                    PWM_GEN_MODE_UP_DOWN | PWM_GEN_MODE_NO_SYNC);
-
-    // Set the initial PWM parameters
-    // Calculate the PWM period corresponding to the freq.
-    uint32_t ui32Period =
-        SysCtlClockGet() / 4 / 250;
-
-    PWMGenPeriodSet(PWM0_BASE, PWM_GEN_3, ui32Period);
-    PWMPulseWidthSet(PWM0_BASE, PWM_OUT_7,
-        ui32Period * 50 / 100);
-
-
-    PWMGenEnable(PWM0_BASE, PWM_GEN_3);
-
 }
 
 
@@ -259,6 +309,9 @@ initDACSignals (void)
 void
 timer_int (void)
 {
+    //Update the interrupt counter
+    g_ui32IntCount++;
+
     TimerIntClear(TIMER0_BASE, TIMER_TIMA_TIMEOUT);
 }
 
@@ -271,15 +324,18 @@ void
 dutyCycle(void)
 {
     //When negative edge is hit, record the values and find the difference
-    int8_t state = GPIOPinRead(GPIO_PORTC_BASE, GPIO_PIN_4);
+    //int32_t state = GPIOPinRead(GPIO_PORTC_BASE, GPIO_PIN_4);
 
-    //If the signal is a leading edge
-    if (state == 1) {
-        start = TimerValueGet(TIMER0_BASE, TIMER_A);
-    } else { //If the signal is falling edge
-        stop = TimerValueGet(TIMER0_BASE, TIMER_A);
+    state = GPIOPinRead(GPIO_PORTC_BASE, GPIO_PIN_4);
+
+    //If the signal is a falling edge
+    if (state == 0) {
+        g_stop = TimerValueGet(TIMER0_BASE, TIMER_A);
         //Only want to calculate on the falling edge or else duty will go from positive to negative.
-        duty = (stop - start)*PWM_Frequency*100;
+        g_duty = (g_stop - g_start)/800;
+    } else { //If the signal is leading edge
+        g_start = TimerValueGet(TIMER0_BASE, TIMER_A);
+
     }
 
     GPIOIntClear(GPIO_PORTC_BASE, GPIO_INT_PIN_4);
@@ -334,10 +390,11 @@ main (void)
     peripheralReset ();
     // Initialise the CPU clock
     initClock ();
+
     initSSIGPIO ();
     // Enable interrupts to the processor.
     IntMasterEnable ();
-    
+
     // Wait for the SSI0 module to be ready
     while (!(SysCtlPeripheralReady (SYSCTL_PERIPH_SSI0)))
     {
@@ -352,13 +409,12 @@ main (void)
 
 
 
+
     //Configure to receive input PWM signals
     initTimer();
 
     //Initalise all the DAC signals. That is the Chip Select and LDAC
     initDACSignals();
-
-    g_current_height = 60;
 
     //local variable for the bits sent to the DAC
     int16_t bits;
@@ -371,7 +427,8 @@ main (void)
                 SSIDataPut (SSI0_BASE, pcChars[ui8Idx]);
             } else if
         }*/
-        //helicopterHeight ();
+
+        helicopterHeight ();
 
         DAC_Inputs(bits);
     }
