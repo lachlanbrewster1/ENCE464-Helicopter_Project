@@ -32,7 +32,7 @@
 
 
 /* Queue handle and queue mutex handles which are to be initialized in this module. */
-xQueueHandle g_butsADCEventQueue;				// Accessed by the button switch and ADC update tasks and queue reader
+xQueueHandle g_buttsADCEventQueue;				// Accessed by the button switch and ADC update tasks and queue reader
 
 
 /* Externally defined global variables, both FreeRTOS-specific and helicopter program specific */
@@ -177,7 +177,7 @@ HWEventQueueReaderTask (void *pvParameters)
     while (1)
     {
         // Obtain most recent queue item
-		if (xQueueReceive (g_butsADCEventQueue, &newQueueItem, 0) == pdPASS)
+		if (xQueueReceive (g_buttsADCEventQueue, &newQueueItem, 0) == pdPASS)
 		{
 			// Only act if new queue item represents a valid event
 			if (newQueueItem.eventType != INVALID_EVENT_TYPE)
@@ -244,7 +244,7 @@ HWEventQueueReaderTaskInit (void)
 {
 	
 	// Initialise the hardware event queue
-	g_butsADCEventQueue = xQueueCreate (HWEVENT_QUEUE_SIZE, HWEVENT_ITEM_SIZE);
+	g_buttsADCEventQueue = xQueueCreate (HWEVENT_QUEUE_SIZE, HWEVENT_ITEM_SIZE);
 	
     // Create the buttons switches task
     if (xTaskCreate (HWEventQueueReaderTask, 

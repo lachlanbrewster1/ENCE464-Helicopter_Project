@@ -42,7 +42,7 @@
 /* FreeRTOS task specific defines */
 #define BUTTONSSWITCHTASKSTACKSIZE      128
 #define BUTTONSSWITCHTASKPOLLDELAY      25
-extern xQueueHandle g_butsADCEventQueue;
+extern xQueueHandle g_buttsADCEventQueue;
 extern xQueueHandle g_pLEDQueue;
 extern xSemaphoreHandle g_pUARTMutex;
 
@@ -392,7 +392,7 @@ ButtonsSwitchTask (void *pvParameters)
                 (eventItem.switchEventType != NO_HW_EVENT))
         {
             // Append event message to the queue
-            if (xQueueSend (g_buttsAdcEventQueue, &eventItem, portMAX_DELAY) != pdPASS)
+            if (xQueueSend (g_buttsADCEventQueue, &eventItem, portMAX_DELAY) != pdPASS)
             {
                 // Queue is full - not good. Should never happen
                 xSemaphoreTake (g_pUARTMutex, portMAX_DELAY);
