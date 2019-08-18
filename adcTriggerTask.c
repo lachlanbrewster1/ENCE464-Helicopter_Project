@@ -16,12 +16,8 @@
 #include "circBufT.h"
 #include "adcTriggerTask.h"
 
-// #include <windows.h> // for sleep()
-
-
 #include "stdio.h"
 #include "stdlib.h"
-
 
 #include "FreeRTOS.h"
 #include "task.h"
@@ -47,17 +43,23 @@ extern xSemaphoreHandle g_adcConvSemaphore;
 
 
 //*****************************************************************************
-// This task handles ADC for the helirig, constantly monitoring the height of the rig,
-// storing the received values in a circular buffer
+// This task handles monitoring ADC values of the helirig, constantly monitoring the height,
+// sets a flag after storing the received value in a circular buffer
 //*****************************************************************************
 static void
 adcTriggerTask(void *pvParameters)
 {
 
+    portTickType ui16LastTime;
+    uint32_t ui32PollDelay = 20;
+	hwEvent_t newQueueItem;
+
+    // Get the current tick count.
+    ui16LastTime = xTaskGetTickCount ();
+
+
     xSemaphoreTake(g_pUARTMutex, BLOCK_TIME_MAX);
-    char string[100];  // 100 characters across the display
-    usnprintf (string, sizeof(string), "ADCTriggerTask starting.\r\n");
-    UARTSend(string);
+    UARTSend("ADCTriggerTask starting.\r\n");
     xSemaphoreGive(g_pUARTMutex);
 
 
@@ -67,41 +69,48 @@ adcTriggerTask(void *pvParameters)
     // Loop forever
     while(1) {
 
-        // Value to be read
-        uint32_t ulValue;
+        // If ADC value is ready
+        if (ADCIntStatus(ADC0_BASE, 3, true)) {
 
-        // Trigger ADC conversion. // TODO to be done by ISR
-        ADCProcessorTrigger(ADC0_BASE, 3);
+             // Value to be read
+            uint32_t ulValue;
 
-        // Sleep(100)
+            // Trigger ADC conversion. // TODO to be done by ISR
+            ADCProcessorTrigger(ADC0_BASE, 3);
 
-        //
-        // Wait for sample
-        while(!ADCIntStatus(ADC0_BASE, 3, false));
+            //
+            // Wait for sample
+            // while(!ADCIntStatus(ADC0_BASE, 3, false));
 
-        //
-        // Get the single sample from ADC0 and write it to ulValue
-        ADCSequenceDataGet(ADC0_BASE, 3, &ulValue);
+            //
+            // Get the single sample from ADC0 and write it to ulValue
+            ADCSequenceDataGet(ADC0_BASE, 3, &ulValue);
 
-        xSemaphoreTake(g_pUARTMutex, BLOCK_TIME_MAX);
-        char string[31];
-        usnprintf (string, sizeof(string), "ADC value: %d\r\n", ulValue);
-        UARTSend(string);
-        xSemaphoreGive(g_pUARTMutex);
+            xSemaphoreTake(g_pUARTMutex, BLOCK_TIME_MAX);
+            char string[31];
+            usnprintf (string, sizeof(string), "ADC value: %d\r\n", ulValue);
+            UARTSend(string);
+            xSemaphoreGive(g_pUARTMutex);
 
-        //
-        // Place it in the circular buffer (advancing write index)
-        writeCircBuf (&g_inBuffer, ulValue);
+            //
+            // Place it in the circular buffer (advancing write index)
+            writeCircBuf (&g_inBuffer, ulValue);
 
-        // TODO set g_adcConvSemaphore flag/semaphore
+            // Set ADC conversion flag
+            if (xSemaphoreGive(g_adcConvSemaphore) == pdFAIL) {
+                // Shouldn't fail as this task holds the semaphore
+                xSemaphoreTake(g_pUARTMutex, BLOCK_TIME_MAX);
+                UARTSend("Failed to give semaphore for ADC trigger!");
+                xSemaphoreGive(g_pUARTMutex);
 
-        //
-        // Clean up, clearing the interrupt
-        ADCIntClear(ADC0_BASE, 3);
+            }
 
+        }
+
+        // Wait for the required amount of time.
+        vTaskDelayUntil (&ui16LastTime, ui32PollDelay / portTICK_RATE_MS);
 
     }
-
 
 }
 
@@ -140,15 +149,10 @@ adcTriggerTaskInit(void)
 void
 ADCIntHandler(void)
 {
-    uint32_t ulValue;
 
-    //
-    // Get the single sample from ADC0.  ADC_BASE is defined in
-    // inc/hw_memmap.h
-    ADCSequenceDataGet(ADC0_BASE, 3, &ulValue);
-    //
-    // Place it in the circular buffer (advancing write index)
-    writeCircBuf (&g_inBuffer, ulValue);
+    // Trigger ADC conversion.
+    ADCProcessorTrigger(ADC0_BASE, 3);
+
     //
     // Clean up, clearing the interrupt
     ADCIntClear(ADC0_BASE, 3);
@@ -181,7 +185,7 @@ initADC (void)
 
     //
     // Register the interrupt handler
-    // ADCIntRegister (ADC0_BASE, 3, ADCIntHandler);
+    ADCIntRegister (ADC0_BASE, 3, ADCIntHandler);
 
     //
     // Enable interrupts for ADC0 sequence 3 (clears any outstanding interrupts)

@@ -83,7 +83,7 @@ typedef enum rgb_led_index_e {
 static uint32_t g_pui32Colors[3] = { LED_OFF_HEX_VALUE };
 static uint8_t g_ui8ColorsIndx;
 
-extern xSemaphoreHandle g_pUARTSemaphore;
+extern xSemaphoreHandle g_pUARTMutex;
 
 //*****************************************************************************
 //

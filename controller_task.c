@@ -59,7 +59,7 @@ xSemaphoreHandle g_initAltADCValueSemaphore;
 
 
 /* Externally defined global variables, both FreeRTOS-specific and helicopter program specific */
-extern xSemaphoreHandle g_pUARTSemaphore;		// Accessed by most tasks
+extern xSemaphoreHandle g_pUARTMutex;		// Accessed by most tasks
 extern OperatingData_t g_programStatus;			// Accessed by the queue reader, controller, PWM and UART tasks
 
 
@@ -258,7 +258,7 @@ ControllerTask (void *pvParameters)
 				
 				// Optional debug statements
 				#if DEBUG
-				xSemaphoreTake (g_pUARTSemaphore, portMAX_DELAY);
+				xSemaphoreTake (g_pUARTMutex, portMAX_DELAY);
 				if (newQueueItem == SLIDER_PUSH_DOWN_EVENT)
 				{
 					UARTprintf (downEventString);
@@ -267,7 +267,7 @@ ControllerTask (void *pvParameters)
 				{
 					UARTprintf (upEventString);
 				}
-				xSemaphoreGive (g_pUARTSemaphore);
+				xSemaphoreGive (g_pUARTMutex);
 				#endif
 			}
 		}

@@ -69,15 +69,12 @@
 // concurrent access of UART from multiple tasks, Queue for ADC and PWM task,
 // and queue for adc and button events
 //*****************************************************************************
-xQueueHandle g_adcReadQueue;
-xQueueHandle g_pwmWriteQueue;
-xQueueHandle g_pwmReadQueue;
 
 xQueueHandle g_buttsAdcEventQueue;
 xSemaphoreHandle g_queueMutex;        // Mutex to guard the event queue from being modified
 
 xSemaphoreHandle g_pUARTMutex;      // Mutex to guard the UART.
-xSemaphoreHandle g_adcConvSemaphore;    // Flag to signal the ADC value is ready to be written to buffer
+SemaphoreHandle_t g_adcConvSemaphore;    // Flag to signal the ADC value is ready to be written to buffer
 
 
 
@@ -134,21 +131,13 @@ main(void)
 
     //
     // Print introduction.
-    //UARTprintf("\n\nWelcome to the ENCE464 helirig thing!\n");
-    char string[100];  // 100 characters across the display
-    usnprintf (string, sizeof(string), "Welcome to the ENCE464 helirig thing!\r\n");
-    UARTSend(string);
+    UARTprintf("\n\nWelcome to the ENCE464 helirig thing!\n");
 
     //
     // Creating needed FreeRTOS structures
-    // g_adcReadQueue = xQueueCreate(DATA_QUEUE_LENGTH, DATA_QUEUE_ITEM_SIZE);
-    // g_pwmReadQueue = xQueueCreate(DATA_QUEUE_LENGTH, DATA_QUEUE_ITEM_SIZE);
-    // g_pwmWriteQueue = xQueueCreate(DATA_QUEUE_LENGTH, DATA_QUEUE_ITEM_SIZE);
-
     g_buttsAdcEventQueue = xQueueCreate(DATA_QUEUE_LENGTH, DATA_QUEUE_ITEM_SIZE);
-
     g_pUARTMutex = xSemaphoreCreateMutex();
-    g_adcConvSemaphore = xSemaphoreCreateMutex();
+    g_adcConvSemaphore = xSemaphoreCreateBinary();
 
 
 //    //

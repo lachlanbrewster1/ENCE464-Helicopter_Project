@@ -59,9 +59,7 @@ uartTask(void *pvParameters)
 {
 
     xSemaphoreTake(g_pUARTMutex, BLOCK_TIME_MAX);
-    char string[100];  // 100 characters across the display
-    usnprintf (string, sizeof(string), "UART task starting.\r\n");
-    UARTSend(string);
+    UARTSend("UART task starting.\r\n");
     xSemaphoreGive(g_pUARTMutex);
 
 
@@ -70,9 +68,7 @@ uartTask(void *pvParameters)
     while(1) {
 
         xSemaphoreTake(g_pUARTMutex, BLOCK_TIME_MAX);
-        char string[100];  // 100 characters across the display
-        usnprintf (string, sizeof(string), "HELI INFO.\r\n");
-        UARTSend(string);
+        UARTSend("HELI INFO.\r\n");
         xSemaphoreGive(g_pUARTMutex);
 
 

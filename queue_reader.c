@@ -37,7 +37,7 @@ xQueueHandle g_butsADCEventQueue;				// Accessed by the button switch and ADC up
 
 /* Externally defined global variables, both FreeRTOS-specific and helicopter program specific */
 extern xQueueHandle g_switchEventQueue;			// Accessed by the queue reader and controller tasks
-extern xSemaphoreHandle g_pUARTSemaphore;		// Accessed by most tasks
+extern xSemaphoreHandle g_pUARTMutex;		// Accessed by most tasks
 extern OperatingData_t g_programStatus;			// Accessed by the queue reader, controller, PWM and UART tasks
 
 
@@ -199,9 +199,9 @@ HWEventQueueReaderTask (void *pvParameters)
 					if (xQueueSend (g_switchEventQueue, &(newQueueItem.eventType), portMAX_DELAY) != pdPASS)
 					{
 						// Queue is full - not good. Should never happen
-						xSemaphoreTake (g_pUARTSemaphore, portMAX_DELAY);
+						xSemaphoreTake (g_pUARTMutex, portMAX_DELAY);
 						UARTprintf ("\nSwitch event queue full. This should never happen.\n");
-						xSemaphoreGive (g_pUARTSemaphore);
+						xSemaphoreGive (g_pUARTMutex);
 						while (1)
 						{
 							// Infinite loop
@@ -224,11 +224,11 @@ HWEventQueueReaderTask (void *pvParameters)
 				hardware event types */
 				if (newQueueItem.eventType < ADC_BUFFER_UPDATED_EVENT)
 				{
-					xSemaphoreTake (g_pUARTSemaphore, portMAX_DELAY);
+					xSemaphoreTake (g_pUARTMutex, portMAX_DELAY);
 					// Index offset by one since one enum value is negative
 					uint8_t index = ((uint8_t) newQueueItem.eventType) + 1;
 					UARTprintf (debugStrings[index]);
-					xSemaphoreGive (g_pUARTSemaphore);
+					xSemaphoreGive (g_pUARTMutex);
 				}
 				#endif
 			}

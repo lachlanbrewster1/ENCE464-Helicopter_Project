@@ -37,80 +37,68 @@ static uint16_t landed_ref;      // Landed reference of the helicopter
 //*****************************************************************************
 #define ADCTASKSTACKSIZE        128         // Stack size in words
 
-// TEMPORARY // TODO
-//#define PRIORITY_ADC_QUEUE_TASK       3
-//#define BLOCK_TIME_MAX          1
-
-
-
 // FreeRTOS structures.
 extern xSemaphoreHandle g_pUARTMutex;
 extern xSemaphoreHandle g_adcConvSemaphore;
 extern xQueueHandle g_buttsAdcEventQueue;
 
 
-
 //*****************************************************************************
-// This task handles ADC for the helirig, constantly monitoring the height of the rig,
-// storing the received values in a circular buffer
+// This task handles calculating, then sending the current average ADC value
+// stored in the circular buffer to the program status through use of the event queue
 //*****************************************************************************
 static void
 adcQueueTask(void *pvParameters)
 {
 
+    portTickType ui16LastTime;
+    uint32_t ui32PollDelay = 20;
+	hw_evt_queue_item_e eventItem;
 
-    // ADCTrigger task triggers ADC conversion, sets semaphore/flag indicating it is ready to be written to the circular buffer
-    // ADCQueue task stores the value in the circular buffer upon seeing the flag set then resets the flag
+    // Get the current tick count.
+    ui16LastTime = xTaskGetTickCount();
 
     xSemaphoreTake(g_pUARTMutex, BLOCK_TIME_MAX);
-    char string[100];  // 100 characters across the display
-    usnprintf (string, sizeof(string), "ADCQueueTask starting.\r\n");
-    UARTSend(string);
+    UARTSend("ADCQueueTask starting.\r\n");
     xSemaphoreGive(g_pUARTMutex);
-
-
-    // butEvents_t eventMessage;
-    uint32_t meanADCValue;
 
 
     //
     // Loop forever
     while(1) {
 
-        // eventMessage = ADC_BUFFER_UPDATED_EVENT;
 
-        if (g_adcConvSemaphore) {       // If flag is set // TODO
+        if (xSemaphoreTake(g_adcConvSemaphore) == pdTRUE) {       // If flag is set
 
+            // Create event message to send, calculate buffer average
+            eventItem.buttonADCEventType = ADC_BUFFER_UPDATED_EVENT;
+            eventItem.adcBufferAverage = calculateMeanHeight();
 
-            // Calculate average
-            meanADCValue = calculateMeanHeight();
+            // Append event message to the queue
+            if (xQueueSend (g_buttsAdcEventQueue, &eventItem, portMAX_DELAY) != pdPASS)
+            {
+                // Queue is full - not good. Should never happen
+                xSemaphoreTake (g_pUARTMutex, portMAX_DELAY);
+                UARTprintf("\nQueue full. This should never happen.\n");
+                xSemaphoreGive (g_pUARTMutex);
+                while(1)
+                {
+                    // Infinite loop
+                }
+            }
 
-//            // Append event message to the queue
-//            if (xQueueSend (g_buttsAdcEventQueue, &eventMessage, portMAX_DELAY) != pdPASS)
-//            {
-//                // Queue is full - not good. Should never happen
-//                xSemaphoreTake (g_pUARTMutex, portMAX_DELAY);
-//                UARTprintf("\nQueue full. This should never happen.\n");
-//                xSemaphoreGive (g_pUARTMutex);
-//                while(1)
-//                {
-//                    // Infinite loop
-//                }
-//        }
-
-
-
-
-            // Put item on event queue    hw_evt_queue_item_e, which contains ADC_BUFFER_UPDATED_EVENT and uint32_t adcBufferAverag
 
             // Reset adcTriggerFlag
-            // g_adcConvSemaphore = 0;       // TODO what value to set it to?
+            if (xSemaphoreGive(g_adcConvSemaphore) == pdFAIL) {
+                // Shouldn't fail since this task still holds the semaphore
+                xSemaphoreTake(g_pUARTMutex, BLOCK_TIME_MAX);
+                UARTprintf("Failed to give semaphore back after ADC queue task!");
+                xSemaphoreGive(g_pUARTMutex);
+            }
         }
 
-
-        //
-        // Clean up, clearing the interrupt
-        ADCIntClear(ADC0_BASE, 3);
+        // Wait for the required amount of time.
+        vTaskDelayUntil (&ui16LastTime, ui32PollDelay / portTICK_RATE_MS);
 
     }
 

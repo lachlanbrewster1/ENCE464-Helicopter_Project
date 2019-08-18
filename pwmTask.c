@@ -61,11 +61,17 @@ extern xQueueHandle g_pwmWriteQueue;
 static void
 pwmTask(void *pvParameters)
 {
-    
+
+    portTickType ui16LastTime;
+    uint32_t ui32PollDelay = CONTROLLER_TASK_POLL_DELAY;
+	hwEvent_t newQueueItem;
+
+    // Get the current tick count.
+    ui16LastTime = xTaskGetTickCount ();
+
+
     xSemaphoreTake(g_pUARTMutex, BLOCK_TIME_MAX);
-    char string[100];  // 100 characters across the display
-    usnprintf (string, sizeof(string), "PWMTask starting.\r\n");
-    UARTSend(string);
+    UARTSend("PWMTask starting.\r\n");
     xSemaphoreGive(g_pUARTMutex);
 
 
@@ -74,31 +80,22 @@ pwmTask(void *pvParameters)
     while(1) {
 
 
-        // Get values from program status // TODO
+        // Get values from program status // TODO what import do I use?
+        //uint32_t mainMotorPWMDuty = operating_data_t_s.mainMotorPWMDuty;
+
         uint32_t mainMotorPWMDuty = 30;
-        //uint8_t tailMotorPWMDuty;
 
 
         //
-        // Set duty cycle of main and secondary rotor
+        // Set duty cycle of main rotor
         // Might need to scale it first? What kind of value is received?
         setDutyCycle(mainMotorPWMDuty, MAIN_ROTOR);
-        //setDutyCycle(tailMotorPWMDuty, SECONDARY_ROTOR);
 
 
-//        uint8_t pwmValue;
-//
-//        //
-//        // Wait for data to be received
-//        xQueueReceive(g_pwmWriteQueue, &pwmValue, BLOCK_TIME_MAX);
-//
-//        //
-//        // Set duty cycle of rotor // Might need to scale it first? What kind of value is received?
-//        setDutyCycle(pwmValue, MAIN_ROTOR);
-
+		// Wait for the required amount of time.
+		vTaskDelayUntil (&ui16LastTime, ui32PollDelay / portTICK_RATE_MS);
 
     }
-
 
 }
 

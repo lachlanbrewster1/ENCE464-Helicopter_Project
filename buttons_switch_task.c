@@ -44,7 +44,7 @@
 #define BUTTONSSWITCHTASKPOLLDELAY      25
 extern xQueueHandle g_butsADCEventQueue;
 extern xQueueHandle g_pLEDQueue;
-extern xSemaphoreHandle g_pUARTSemaphore;
+extern xSemaphoreHandle g_pUARTMutex;
 
 /* Global, module-specific, non-FreeRTOS defines */
 
@@ -339,25 +339,25 @@ ButtonsSwitchTask (void *pvParameters)
         {
             eventItem.buttonADCEventType = UP_AND_DOWN_BUTTON_PUSH_EVENT;
             // Guard UART from concurrent access
-            xSemaphoreTake (g_pUARTSemaphore, portMAX_DELAY);
+            xSemaphoreTake (g_pUARTMutex, portMAX_DELAY);
             UARTprintf ("Up and down buttons are pressed.\n");
-            xSemaphoreGive (g_pUARTSemaphore);
+            xSemaphoreGive (g_pUARTMutex);
         }
         else if (upButtonPushed && !(downButtonPushed))
         {
             eventItem.buttonADCEventType = UP_BUTTON_PUSH_EVENT;
             // Guard UART from concurrent access
-            xSemaphoreTake (g_pUARTSemaphore, portMAX_DELAY);
+            xSemaphoreTake (g_pUARTMutex, portMAX_DELAY);
             UARTprintf ("Up button is pressed.\n");
-            xSemaphoreGive (g_pUARTSemaphore);
+            xSemaphoreGive (g_pUARTMutex);
         }
         else if (!(upButtonPushed) && downButtonPushed)
         {
             eventItem.buttonADCEventType = DOWN_BUTTON_PUSH_EVENT;
             // Guard UART from concurrent access
-            xSemaphoreTake (g_pUARTSemaphore, portMAX_DELAY);
+            xSemaphoreTake (g_pUARTMutex, portMAX_DELAY);
             UARTprintf ("Down button is pressed.\n");
-            xSemaphoreGive (g_pUARTSemaphore);
+            xSemaphoreGive (g_pUARTMutex);
         }
         else
         {
@@ -370,17 +370,17 @@ ButtonsSwitchTask (void *pvParameters)
         {
             eventItem.switchEventType = SLIDER_PUSH_UP_EVENT;
             // Guard UART from concurrent access
-            xSemaphoreTake (g_pUARTSemaphore, portMAX_DELAY);
+            xSemaphoreTake (g_pUARTMutex, portMAX_DELAY);
             UARTprintf ("Slider switch pushed up.\n");
-            xSemaphoreGive (g_pUARTSemaphore);
+            xSemaphoreGive (g_pUARTMutex);
         }
         else if (sliderSwitchPushedDown)
         {
             eventItem.switchEventType = SLIDER_PUSH_DOWN_EVENT;
             // Guard UART from concurrent access
-            xSemaphoreTake (g_pUARTSemaphore, portMAX_DELAY);
+            xSemaphoreTake (g_pUARTMutex, portMAX_DELAY);
             UARTprintf ("Slider switch pushed down.\n");
-            xSemaphoreGive (g_pUARTSemaphore);
+            xSemaphoreGive (g_pUARTMutex);
         }
         else
         {
@@ -392,12 +392,12 @@ ButtonsSwitchTask (void *pvParameters)
                 (eventItem.switchEventType != NO_HW_EVENT))
         {
             // Append event message to the queue
-            if (xQueueSend (g_pLEDQueue, &eventItem, portMAX_DELAY) != pdPASS)
+            if (xQueueSend (g_buttsAdcEventQueue, &eventItem, portMAX_DELAY) != pdPASS)
             {
                 // Queue is full - not good. Should never happen
-                xSemaphoreTake (g_pUARTSemaphore, portMAX_DELAY);
+                xSemaphoreTake (g_pUARTMutex, portMAX_DELAY);
                 UARTprintf("\nQueue full. This should never happen.\n");
-                xSemaphoreGive (g_pUARTSemaphore);
+                xSemaphoreGive (g_pUARTMutex);
                 while(1)
                 {
                     // Infinite loop

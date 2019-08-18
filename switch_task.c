@@ -48,7 +48,7 @@
 #define SWITCHTASKSTACKSIZE        128         // Stack size in words
 
 extern xQueueHandle g_pLEDQueue;
-extern xSemaphoreHandle g_pUARTSemaphore;
+extern xSemaphoreHandle g_pUARTMutex;
 
 //*****************************************************************************
 //
@@ -100,9 +100,9 @@ SwitchTask(void *pvParameters)
                     //
                     // Guard UART from concurrent access.
                     //
-                    xSemaphoreTake(g_pUARTSemaphore, portMAX_DELAY);
+                    xSemaphoreTake(g_pUARTMutex, portMAX_DELAY);
                     UARTprintf("Left Button is pressed.\n");
-                    xSemaphoreGive(g_pUARTSemaphore);
+                    xSemaphoreGive(g_pUARTMutex);
                 }
                 else if((ui8CurButtonState & ALL_BUTTONS) == RIGHT_BUTTON)
                 {
@@ -111,9 +111,9 @@ SwitchTask(void *pvParameters)
                     //
                     // Guard UART from concurrent access.
                     //
-                    xSemaphoreTake(g_pUARTSemaphore, portMAX_DELAY);
+                    xSemaphoreTake(g_pUARTMutex, portMAX_DELAY);
                     UARTprintf("Right Button is pressed.\n");
-                    xSemaphoreGive(g_pUARTSemaphore);
+                    xSemaphoreGive(g_pUARTMutex);
                 }
 
                 //
