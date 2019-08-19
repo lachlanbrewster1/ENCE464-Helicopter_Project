@@ -49,7 +49,7 @@ typedef struct hw_evt_queue_item_e
 
 /* Update the reference percentage altitude in the program status object.
 This function is also used by the controller task. */
-extern void
+void
 updateProgramStatusRefAlt (OperatingData_t *programStatus, bool doIncrease);
 
 

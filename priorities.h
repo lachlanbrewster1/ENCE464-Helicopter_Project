@@ -30,8 +30,8 @@
 // The priorities of the various tasks.
 //
 //*****************************************************************************
-#define PRIORITY_CONTROLLER_TASK		3
-#define PRIORITY_HW_EVENT_QUEUE_TASK	3
+#define PRIORITY_CONTROLLER_TASK        2
+#define PRIORITY_HW_EVENT_QUEUE_TASK    3
 #define PRIORITY_BUTTONS_SWITCH_TASK    2
 #define PRIORITY_SWITCH_TASK            2
 #define PRIORITY_LED_TASK               1

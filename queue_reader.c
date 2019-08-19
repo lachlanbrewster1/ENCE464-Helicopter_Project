@@ -26,7 +26,7 @@
 
 /* FreeRTOS task specific defines */
 #define QUEUEREADERTASKSTACKSIZE		128
-#define QUEUEREADERTASKPOLLDELAY		25		// Might we have to poll faster than 1kHz or faster than the ADC?
+#define QUEUEREADERTASKPOLLDELAY		2.5		// Might we have to poll faster than 1kHz or faster than the ADC?
 #define HWEVENT_ITEM_SIZE				sizeof (hwEventQueueItem_t)
 #define HWEVENT_QUEUE_SIZE				10
 
@@ -58,11 +58,13 @@ static const char* debugStrings[SLIDER_PUSH_UP_EVENT + 1] =
 
 /* Returns a capped integer value given an input value to be checked and a given bound value.
 If the input value is above the given bound, the bound value is returned instead. 
-Only to be used with unsigned 8-bit integer values. */
+This function can accept input and bound values between -128 and +127 before integer
+overflow becomes a problem. This function has no safeguarding mechanism if a parameter
+too large in magnitude is passed in. */
 static uint8_t 
-ui8CapToGivenBoundType (uint8_t inputValue, uint8_t boundValue, bool isUpperBound)
+ui8CapToGivenBoundType (int8_t inputValue, int8_t boundValue, bool isUpperBound)
 {
-	uint8_t retVal;
+	int8_t retVal;
 	if (isUpperBound)
 	{
 		retVal = (inputValue > boundValue) ? boundValue : inputValue;
@@ -71,17 +73,19 @@ ui8CapToGivenBoundType (uint8_t inputValue, uint8_t boundValue, bool isUpperBoun
 	{
 		retVal = (inputValue < boundValue) ? boundValue : inputValue;
 	}
-	return retVal;
+	return (uint8_t)retVal;
 }
 
 
 /* Returns a capped integer value given an input value to be checked and a given bound value.
 If the input value is above the given bound, the bound value is returned instead.
-Only to be used with unsigned 32-bit integer values */
+This function can accept input and bound values between -128 and +127 before integer
+overflow becomes a problem. This function has no safeguarding mechanism if a parameter
+too large in magnitude is passed in. */
 static uint32_t
-ui32CapToGivenBoundType (uint32_t inputValue, uint32_t boundValue, bool isUpperBound)
+ui32CapToGivenBoundType (int32_t inputValue, int32_t boundValue, bool isUpperBound)
 {
-	uint32_t retVal;
+	int32_t retVal;
 	if (isUpperBound)
 	{
 		retVal = (inputValue > boundValue) ? boundValue : inputValue;
@@ -90,13 +94,13 @@ ui32CapToGivenBoundType (uint32_t inputValue, uint32_t boundValue, bool isUpperB
 	{
 		retVal = (inputValue < boundValue) ? boundValue : inputValue;
 	}
-	return retVal;
+	return (uint32_t)retVal;
 }
 
 
 /* Update the reference percentage altitude in the program status object.
  * NOT STATIC - this needs to be visible to the controller module */
-static void
+void
 updateProgramStatusRefAlt (OperatingData_t *programStatus, bool doIncrease)
 {
 	uint8_t currRefAltPct = programStatus->referenceAltPercent;
@@ -114,32 +118,19 @@ updateProgramStatusRefAlt (OperatingData_t *programStatus, bool doIncrease)
 		/* Increase the percentage altitude by 10% and the decrement digital 
 		representation by the corresponding amount - both are capped to their
 		respective limits */
-		if (currRefAltPct < MAX_ALTITUDE_PCT)
-		{
-			newRefAltPct = ui8CapToGivenBoundType ((currRefAltPct + ALTITUDE_INCREMENT_PCT), 
-													MAX_ALTITUDE_PCT, true);
-		}
-		if (currRefAltDig > MAX_ALTITUDE_ADC)
-		{
-			newRefAltDig = ui32CapToGivenBoundType ((currRefAltDig - ALTITUDE_INCREMENT_ADC),
-													MAX_ALTITUDE_ADC, false);
-		}
-		
+		newRefAltPct = ui8CapToGivenBoundType ((currRefAltPct + ALTITUDE_INCREMENT_PCT), 
+												MAX_ALTITUDE_PCT, true);
+		newRefAltDig = ui32CapToGivenBoundType ((currRefAltDig - ALTITUDE_INCREMENT_ADC),
+												MAX_ALTITUDE_ADC, false);
 	} 
 	else
 	{
 		/* Decrease both the percentage and digital representations of the
 		reference altitude */
-		if (currRefAltPct > MIN_ALTITUDE_PCT)
-		{
-			newRefAltPct = ui8CapToGivenBoundType ((currRefAltPct - ALTITUDE_INCREMENT_PCT),
-													MIN_ALTITUDE_PCT, false);
-		}
-		if (currRefAltDig < MIN_ALTITUDE_ADC)
-		{
-			newRefAltDig = ui32CapToGivenBoundType ((currRefAltDig + ALTITUDE_INCREMENT_ADC),
-													MIN_ALTITUDE_ADC, true);
-		}
+		newRefAltPct = ui8CapToGivenBoundType ((currRefAltPct - ALTITUDE_INCREMENT_PCT),
+												MIN_ALTITUDE_PCT, false);
+		newRefAltDig = ui32CapToGivenBoundType ((currRefAltDig + ALTITUDE_INCREMENT_ADC),
+												MIN_ALTITUDE_ADC, true);
 	}
 	// Update reference altitude members of structure
 	programStatus->referenceAltPercent = newRefAltPct;
@@ -179,11 +170,12 @@ HWEventQueueReaderTask (void *pvParameters)
         // Obtain most recent queue item
 		if (xQueueReceive (g_butsADCEventQueue, &newQueueItem, 0) == pdPASS)
 		{
-			// Only act if new queue item represents a valid event
-			if (newQueueItem.eventType != INVALID_EVENT_TYPE)
+			/* Check for button events and switch events seperately */
+			// Checking for button events here
+			if (newQueueItem.buttonADCEventType != INVALID_EVENT_TYPE)
 			{
 				// Determine which hardware event occurred
-				switch (newQueueItem.eventType)
+				switch (newQueueItem.buttonADCEventType)
 				{
 				case UP_BUTTON_PUSH_EVENT:
 					// Increment reference altitude
@@ -193,10 +185,24 @@ HWEventQueueReaderTask (void *pvParameters)
 					// Decrement reference altitude
 					updateProgramStatusRefAlt (&g_programStatus, false);
 					break;
+				case ADC_BUFFER_UPDATED_EVENT:
+					// Update current altitude in digital representation
+					updateProgramStatusCurAlt (&g_programStatus, newQueueItem.adcBufferAverage);
+					break;
+				default:
+					// In case other type of event, do nothing
+					break;
+				}
+			}
+			// Checking for switch events here
+			if (newQueueItem.switchEventType != INVALID_EVENT_TYPE)
+			{
+				switch (newQueueItem.switchEventType)
+				{
 				/* Append switch event to the switch event queue */
 				case SLIDER_PUSH_DOWN_EVENT:
 				case SLIDER_PUSH_UP_EVENT:
-					if (xQueueSend (g_switchEventQueue, &(newQueueItem.eventType), portMAX_DELAY) != pdPASS)
+					if (xQueueSend (g_switchEventQueue, &(newQueueItem.switchEventType), portMAX_DELAY) != pdPASS)
 					{
 						// Queue is full - not good. Should never happen
 						xSemaphoreTake (g_pUARTSemaphore, portMAX_DELAY);
@@ -208,29 +214,26 @@ HWEventQueueReaderTask (void *pvParameters)
 						}
 					}
 					break;
-				case ADC_BUFFER_UPDATED_EVENT:
-					// Update current altitude in digital representation
-					updateProgramStatusCurAlt (&g_programStatus, newQueueItem.adcBufferAverage);
-					break;
 				default:
-					// In case of no hardware event (NO_HW_EVENT), do nothing
+					// For other types of events, do nothing. This should not occur
 					break;
 				}
+				
 			}
-				// Optional debug statements
-				#if DEBUG
-				/* ADC buffer would update at fast rate, so the serial terminal
-				would be overloaded with print messages, so only print for other
-				hardware event types */
-				if (newQueueItem.eventType < ADC_BUFFER_UPDATED_EVENT)
-				{
-					xSemaphoreTake (g_pUARTSemaphore, portMAX_DELAY);
-					// Index offset by one since one enum value is negative
-					uint8_t index = ((uint8_t) newQueueItem.eventType) + 1;
-					UARTprintf (debugStrings[index]);
-					xSemaphoreGive (g_pUARTSemaphore);
-				}
-				#endif
+			// Optional debug statements
+			#if DEBUG
+			/* ADC buffer would update at fast rate, so the serial terminal
+			would be overloaded with print messages, so only print for other
+			hardware event types */
+			if (newQueueItem.eventType < ADC_BUFFER_UPDATED_EVENT)
+			{
+				xSemaphoreTake (g_pUARTSemaphore, portMAX_DELAY);
+				// Index offset by one since one enum value is negative
+				uint8_t index = ((uint8_t) newQueueItem.eventType) + 1;
+				UARTprintf (debugStrings[index]);
+				xSemaphoreGive (g_pUARTSemaphore);
+			}
+			#endif
 			}
 		// Wait for the required amount of time. Delay is probably not necessary
 		vTaskDelayUntil (&ui16LastTime, ui32PollDelay / portTICK_RATE_MS);
