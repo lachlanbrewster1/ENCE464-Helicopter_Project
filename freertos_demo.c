@@ -34,6 +34,9 @@
 #include "utils/uartstdio.h"
 #include "led_task.h"
 #include "buttons_switch_task.h"
+#include "queue_reader.h"
+#include "sharedConstants.h"
+#include "controller_task.h"
 #include "FreeRTOS.h"
 #include "task.h"
 #include "queue.h"
@@ -83,7 +86,7 @@
 //
 //*****************************************************************************
 xSemaphoreHandle g_pUARTSemaphore;
-
+OperatingData_t g_programStatus;
 //*****************************************************************************
 //
 // The error routine that is called if the driver library encounters an error.
@@ -151,6 +154,18 @@ ConfigureUART(void)
     UARTStdioConfig(0, 115200, 16000000);
 }
 
+/* Initialises the program status structure object */
+void
+initialiseProgramStatus (OperatingData_t* statusObject)
+{
+    statusObject->mode = landed;
+    statusObject->referenceAltDig = STARTING_REF_ALT_DIG;
+    statusObject->currentAltDig = STARTING_REF_ALT_DIG;
+    statusObject->referenceAltPercent = STARTING_REF_ALT_PCT;
+    statusObject->mainMotorPWMDuty = STARTING_MAIN_MOTOR_DUTY;
+    statusObject->pPartAlt = 0;
+    statusObject->iPartAlt = STARTING_ALT_INTG_ERROR;
+}
 //*****************************************************************************
 //
 // Initialize FreeRTOS and start the initial set of tasks.
@@ -183,13 +198,13 @@ main(void)
     //
     // Create the LED task.
     //
-    if(LEDTaskInit() != 0)
-    {
+    // if(LEDTaskInit() != 0)
+    // {
 
-        while(1)
-        {
-        }
-    }
+    //     while(1)
+    //     {
+    //     }
+    // }
 
     //
     // Create the switch task.
@@ -201,6 +216,26 @@ main(void)
         {
         }
     }
+
+    // Create the hardware event queue reader task
+    if (HWEventQueueReaderTaskInit() != 0)
+    {
+        while (1)
+        {
+        }
+
+    }
+
+    // Create the controller task
+    if (ControllerTaskInit() != 0)
+    {
+        while(1)
+        {
+        }
+    }
+
+    // Initialise the program status
+    initialiseProgramStatus (&g_programStatus);
 
     //
     // Start the scheduler.  This should not return.

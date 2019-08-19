@@ -38,8 +38,7 @@
 #define PWM_DUTY_MIN 5
 #define HELI_BAUD_RATE 9600
 
-#define STARTING_REFERENCE 0
-#define STARTING_POSITION 0
+
 
 // Maximum and minimum bounds on the altitude and yaw and increment values
 #define MAX_ALTITUDE_ADC 1240
@@ -52,6 +51,13 @@
 // Calculated from the number of state changes * YAW INCREMENT DEGREES. 
 // Hard coded to avoid integer arithmetic.
 #define YAW_INCREMENT_STATE_CHANGES 19 
+
+/* Starting positions when the program is initialized */
+#define STARTING_REF_ALT_PCT (MIN_ALTITUDE_PCT)
+#define STARTING_REF_ALT_DIG (MIN_ALTITUDE_ADC)
+#define STARTING_ALT_INTG_ERROR 1600
+#define STARTING_MAIN_MOTOR_DUTY 0
+#define STARTING_POSITION 0
 
 // This is the truth table that takes the current and previous yaw level states
 // of channels A and B of the helicopter rig as inputs. It outputs an increment

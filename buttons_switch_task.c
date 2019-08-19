@@ -41,7 +41,7 @@
 
 /* FreeRTOS task specific defines */
 #define BUTTONSSWITCHTASKSTACKSIZE      128
-#define BUTTONSSWITCHTASKPOLLDELAY      25
+#define BUTTONSSWITCHTASKPOLLDELAY      10
 extern xQueueHandle g_buttsADCEventQueue;
 extern xQueueHandle g_pLEDQueue;
 extern xSemaphoreHandle g_pUARTMutex;
@@ -60,6 +60,7 @@ static buttonSwitch_t g_up_button =
     .current_logic_level = false,
     .is_active_high = UP_BUT_ACTIVE_HIGH,
     .current_button_state = false,
+    .but_evt_flag = false,
     .but_deb_count = 0,
     .but_evt_state = NO_CHANGE
     /* Can ignore the switch event field as this is a button instance */
@@ -77,6 +78,7 @@ static buttonSwitch_t g_down_button =
     .current_logic_level = false,
     .is_active_high = UP_BUT_ACTIVE_HIGH,
     .current_button_state = false,
+    .but_evt_flag = false,
     .but_deb_count = 0,
     .but_evt_state = NO_CHANGE
     /* Can ignore the switch event field as this is a button instance */
@@ -154,12 +156,23 @@ getSwitchEventState (const buttonSwitch_t *sw_obj)
 }
 
 
-/* Returns true if the current button event state is PUSHED, false otherwise
+/* Returns true if the current button event state is PUSHED, false otherwise.
+ * Checks the button flags for a button event and resets it.
  */
 bool
-isButtonEventStatePushed (const buttonSwitch_t *but_obj)
+isButtonEventStatePushed (buttonSwitch_t *but_obj)
 {
-    return ((getButtonEventState (but_obj) == PUSHED) ? true : false);
+    bool retVal = false;
+    bool isPushed = (getButtonEventState (but_obj) == PUSHED) ? true : false;
+    if ((but_obj->but_evt_flag) && (isPushed))
+    {
+        retVal = true;
+    }
+
+    // Reset the button event flag
+    but_obj->but_evt_flag = false;
+
+    return retVal;
 }
 
 
@@ -225,6 +238,8 @@ updateButtonObj (buttonSwitch_t *but_obj)
             but_obj->but_deb_count = 0;
             // Set whether it's a released or pushed button event
             but_obj->but_evt_state = updateButtonEventState (but_obj);
+            // Set flag. This is reset in the task
+            but_obj->but_evt_flag = true;
         }
     }
     else
@@ -314,7 +329,7 @@ static void
 ButtonsSwitchTask (void *pvParameters)
 {
     portTickType ui16LastTime;
-    uint32_t ui32PollDelay = 25;
+    uint32_t ui32PollDelay = BUTTONSSWITCHTASKPOLLDELAY;
     hwEventQueueItem_t eventItem;
 
     // Get the current tick count.

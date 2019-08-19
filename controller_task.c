@@ -25,7 +25,7 @@
 
 /* FreeRTOS task specific defines */
 #define CONTROLLER_TASK_STACK_SIZE		128
-#define CONTROLLER_TASK_POLL_DELAY		10
+#define CONTROLLER_TASK_POLL_DELAY		3.333
 #define SWITCH_EVENT_ITEM_SIZE			sizeof (hwEvent_t)
 #define SWITCH_EVENT_QUEUE_SIZE			10
 
@@ -55,7 +55,7 @@
 /* Queue handle and queue mutex handles which are to be initialized in this module. */
 xQueueHandle g_switchEventQueue;				// Accessed hardware event queue reader task
 uint32_t g_landedAltitudeADCValue = MIN_ALTITUDE_ADC;
-xSemaphoreHandle g_initAltADCValueSemaphore;
+// xSemaphoreHandle g_initAltADCValueSemaphore;
 
 
 /* Externally defined global variables, both FreeRTOS-specific and helicopter program specific */
@@ -296,7 +296,7 @@ ControllerTaskInit (void)
 	This binary semaphore is taken by the ADC task during program
 	initialisation and is never given back - since the initial
 	altitude ADC value is only measured once and only once. */
-	g_initAltADCValueSemaphore = xSemaphoreCreateBinary ();
+	// g_initAltADCValueSemaphore = xSemaphoreCreateBinary ();
 	
     // Create the buttons switches task
     if (xTaskCreate (ControllerTask, 

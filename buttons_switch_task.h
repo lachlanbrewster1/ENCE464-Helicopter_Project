@@ -66,12 +66,13 @@ typedef struct button_switch_s_t
     uint8_t tiva_gpio_pin;
     uint32_t tiva_gpio_strength;
     uint32_t tiva_gpio_pin_type;
+    butStates_t but_evt_state;
     bool is_button;
     bool is_active_high;
     bool current_logic_level;
     bool current_button_state;
+    bool but_evt_flag;
     uint8_t but_deb_count;
-    butStates_t but_evt_state;
     switchStates_t sw_evt_state;
     bool current_sw_state;
     bool previous_sw_state;
@@ -104,7 +105,7 @@ typedef struct button_switch_s_t
 #define SLIDER_ONE_GPIO_STRENGTH GPIO_STRENGTH_2MA
 #define SLIDER_ONE_GPIO_TYPE GPIO_PIN_TYPE_STD_WPD
 
-#define NUM_BUT_POLLS 3
+#define NUM_BUT_POLLS 5
 
 #define RED_LED   GPIO_PIN_1
 #define BLUE_LED  GPIO_PIN_2
@@ -129,10 +130,11 @@ initAllButtonSwitchObjs (void);
 butStates_t
 getButtonEventState (const buttonSwitch_t *but_obj);
 
-/* Returns true if the current button event state is PUSHED, false otherwise
+/* Returns true if the current button event state is PUSHED, false otherwise.
+ * Checks the button flags for a button event and resets it.
  */
 bool
-isButtonEventStatePushed (const buttonSwitch_t *but_obj);
+isButtonEventStatePushed (buttonSwitch_t *but_obj);
 
 /*
 Determines whether a button event is a pushed one or a released event.
