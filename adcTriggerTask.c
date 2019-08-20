@@ -26,9 +26,6 @@
 #include "queue.h"
 #include "semphr.h"
 
-static circBuf_t g_inBuffer;     // Buffer of size BUF_SIZE
-static uint16_t landed_ref;      // Landed reference of the helicopter
-
 
 
 //*****************************************************************************
@@ -73,7 +70,7 @@ adcTriggerTask(void *pvParameters)
         ADCProcessorTrigger(ADC0_BASE, 3);
 
         // Wait for the required amount of time.
-        vTaskDelayUntil (&ui16LastTime, ui32PollDelay / portTICK_RATE_MS);
+        //vTaskDelayUntil (&ui16LastTime, ui32PollDelay / portTICK_RATE_MS);
 
     }
 
@@ -134,7 +131,6 @@ void
 initADC (void)
 {
 
-    initCircBuf (&g_inBuffer, BUF_SIZE);
 
     //
     // The ADC0 peripheral must be enabled for configuration and use.
@@ -163,17 +159,17 @@ initADC (void)
 
 
 
-//*****************************************************************************
-// Set the landed reference of the helicopter.
-// Uses the rounded mean of the circular buffer contents
-//*****************************************************************************
-void
-setLandedRef(void)
-{
-    uint16_t i;
-    uint32_t sum = 0;
-    for (i = 0; i < BUF_SIZE; i++)
-            sum = sum + readCircBuf (&g_inBuffer);
-        // Calculate the rounded mean of the buffer contents
-    landed_ref = (2 * sum + BUF_SIZE) / 2 / BUF_SIZE;
-}
+////*****************************************************************************
+//// Set the landed reference of the helicopter.
+//// Uses the rounded mean of the circular buffer contents
+////*****************************************************************************
+//void
+//setLandedRef(void)
+//{
+//    uint16_t i;
+//    uint32_t sum = 0;
+//    for (i = 0; i < BUF_SIZE; i++)
+//            sum = sum + readCircBuf (&g_inBuffer);
+//        // Calculate the rounded mean of the buffer contents
+//    landed_ref = (2 * sum + BUF_SIZE) / 2 / BUF_SIZE;
+//}

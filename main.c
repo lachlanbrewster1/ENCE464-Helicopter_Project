@@ -286,15 +286,15 @@ main(void)
         }
     }
 
-    //
-    // Create the PWM task.
-    if(pwmTaskInit() != 0)
-    {
-
-        while(1)
-        {
-        }
-    }
+//    //
+//    // Create the PWM task.
+//    if(pwmTaskInit() != 0)
+//    {
+//
+//        while(1)
+//        {
+//        }
+//    }
 
 
     // Initialise the program status

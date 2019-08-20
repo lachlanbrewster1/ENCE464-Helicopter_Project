@@ -65,7 +65,7 @@ adcQueueTask(void *pvParameters)
     // Get the current tick count.
     ui16LastTime = xTaskGetTickCount();
 
-    bool calibrationDone = false;
+    uint32_t calibrationDone = 0;
     uint32_t circBufcounter = 0;
 
 
@@ -80,7 +80,8 @@ adcQueueTask(void *pvParameters)
         if (xSemaphoreTake(g_adcConvSemaphore, portMAX_DELAY) == pdTRUE) {       // If flag is set
 
             // If ADC value is ready
-            if (ADCIntStatus(ADC0_BASE, 3, true)) {
+            //if (ADCIntStatus(ADC0_BASE, 3, true)) {
+            if (true) {
 
                 // Value to be read
                 uint32_t ulValue;
@@ -100,12 +101,12 @@ adcQueueTask(void *pvParameters)
                 writeCircBuf (&g_inBuffer, ulValue);
 
 
-                if (!calibrationDone) {circBufcounter++;}
+                if (calibrationDone == 0) {circBufcounter++;}
 
             }
 
 
-            if (calibrationDone) {
+            if (calibrationDone == 1) {
 
                 // Create event message to send, calculate buffer average
                 eventItem.buttonADCEventType = ADC_BUFFER_UPDATED_EVENT;
@@ -127,7 +128,11 @@ adcQueueTask(void *pvParameters)
             } else {
 
                 if (circBufcounter >= BUF_SIZE) {
-                    calibrationDone = true;
+                    calibrationDone = 1;
+
+                    xSemaphoreTake (g_pUARTMutex, portMAX_DELAY);
+                    UARTprintf("\nCALIBRATION DONE\n");
+                    xSemaphoreGive (g_pUARTMutex);
 
                     xSemaphoreGive(g_calibrationCompleteSemaphore);
 
@@ -181,7 +186,8 @@ adcQueueTaskInit(void)
     // Initialize ADC things
     // initADC(); // Done in ADC Trigger Task
 
-    //TODO Create calibration semaphore
+    initCircBuf (&g_inBuffer, BUF_SIZE);
+
     g_calibrationCompleteSemaphore = xSemaphoreCreateBinary();
     g_adcConvSemaphore = xSemaphoreCreateBinary();
 
