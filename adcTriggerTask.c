@@ -70,7 +70,7 @@ adcTriggerTask(void *pvParameters)
         ADCProcessorTrigger(ADC0_BASE, 3);
 
         // Wait for the required amount of time.
-        //vTaskDelayUntil (&ui16LastTime, ui32PollDelay / portTICK_RATE_MS);
+        vTaskDelayUntil (&ui16LastTime, ui32PollDelay / portTICK_RATE_MS);
 
     }
 

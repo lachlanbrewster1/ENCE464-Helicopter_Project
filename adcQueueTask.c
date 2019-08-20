@@ -125,15 +125,16 @@ adcQueueTask(void *pvParameters)
                     }
                 }
 
-            } else {
+            } else {  //TODO   DUPLICATED CODE! Create 'send average buffer' function
 
                 if (circBufcounter >= BUF_SIZE) {
                     calibrationDone = 1;
 
                     xSemaphoreTake (g_pUARTMutex, portMAX_DELAY);
-                    UARTprintf("\nCALIBRATION DONE\n");
+                    UARTprintf("CALIBRATION DONE\n");
                     xSemaphoreGive (g_pUARTMutex);
 
+                    // Signaling that calibration is complete, buffer is full and average has been computed
                     xSemaphoreGive(g_calibrationCompleteSemaphore);
 
                     // Create event message to send, calculate buffer average
@@ -152,12 +153,8 @@ adcQueueTask(void *pvParameters)
                            // Infinite loop
                        }
                    }
-
                 }
-
-
             }
-
 
 
         } else {

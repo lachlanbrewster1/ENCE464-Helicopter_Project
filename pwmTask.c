@@ -185,11 +185,11 @@ setDutyCycle (uint32_t ui32Duty, uint8_t rotor)
         PWMPulseWidthSet(PWM_MAIN_BASE, PWM_MAIN_OUTNUM,
         ui32Period * ui32Duty / 100);
 
-//        xSemaphoreTake(g_pUARTMutex, BLOCK_TIME_MAX);
-//        char string[31];
-//        usnprintf (string, sizeof(string), "Set rotor duty cycle to: %d\r\n", ui32Duty);
-//        UARTSend(string);
-//        xSemaphoreGive(g_pUARTMutex);
+        xSemaphoreTake(g_pUARTMutex, BLOCK_TIME_MAX);
+        char string[31];
+        usnprintf (string, sizeof(string), "Set rotor duty cycle to: %d\r\n", ui32Duty);
+        UARTprintf(string);
+        xSemaphoreGive(g_pUARTMutex);
 
     }
     else if (rotor == SECONDARY_ROTOR){
