@@ -71,8 +71,29 @@ adcQueueTask(void *pvParameters)
     // Loop forever
     while(1) {
 
-
         if (xSemaphoreTake(g_adcConvSemaphore, portMAX_DELAY) == pdTRUE) {       // If flag is set
+
+            // If ADC value is ready
+            if (ADCIntStatus(ADC0_BASE, 3, true)) {
+
+                 // Value to be read
+                uint32_t ulValue;
+
+                //
+                // Get the single sample from ADC0 and write it to ulValue
+                ADCSequenceDataGet(ADC0_BASE, 3, &ulValue);
+
+                xSemaphoreTake(g_pUARTMutex, BLOCK_TIME_MAX);
+                char string[31];
+                usnprintf (string, sizeof(string), "ADC value: %d\r\n", ulValue);
+                UARTprintf(string);
+                xSemaphoreGive(g_pUARTMutex);
+
+                //
+                // Place it in the circular buffer (advancing write index)
+                writeCircBuf (&g_inBuffer, ulValue);
+
+            }
 
             // Create event message to send, calculate buffer average
             eventItem.buttonADCEventType = ADC_BUFFER_UPDATED_EVENT;

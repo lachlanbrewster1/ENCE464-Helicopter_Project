@@ -65,9 +65,6 @@ adcTriggerTask(void *pvParameters)
     xSemaphoreGive(g_pUARTMutex);
 
 
-
-    // TODO Create ISR and handler which triggers ADC conversion, ISR should be triggered at 300hz
-
     //
     // Loop forever
     while(1) {
@@ -83,46 +80,6 @@ adcTriggerTask(void *pvParameters)
         // Trigger ADC conversion.
         ADCProcessorTrigger(ADC0_BASE, 3);
 
-
-        // If ADC value is ready
-        if (ADCIntStatus(ADC0_BASE, 3, true)) {
-
-             // Value to be read
-            uint32_t ulValue;
-
-
-            //
-            // Wait for sample
-            // while(!ADCIntStatus(ADC0_BASE, 3, false));
-
-            //
-            // Get the single sample from ADC0 and write it to ulValue
-            ADCSequenceDataGet(ADC0_BASE, 3, &ulValue);
-
-            xSemaphoreTake(g_pUARTMutex, BLOCK_TIME_MAX);
-            char string[31];
-            usnprintf (string, sizeof(string), "ADC value: %d\r\n", ulValue);
-            UARTprintf(string);
-            xSemaphoreGive(g_pUARTMutex);
-
-            //
-            // Place it in the circular buffer (advancing write index)
-            writeCircBuf (&g_inBuffer, ulValue);
-
-            // Set ADC conversion flag
-            if (xSemaphoreGive(g_adcConvSemaphore) == pdFAIL) {
-                // Shouldn't fail as this task holds the semaphore
-                xSemaphoreTake(g_pUARTMutex, BLOCK_TIME_MAX);
-                UARTprintf("Failed to give semaphore for ADC flag!\n");
-                xSemaphoreGive(g_pUARTMutex);
-
-            } else {
-                xSemaphoreTake(g_pUARTMutex, BLOCK_TIME_MAX);
-                UARTprintf("Succesfully gave semaphore for ADC flag!\n");
-                xSemaphoreGive(g_pUARTMutex);
-            }
-
-        }
 
         // Wait for the required amount of time.
         vTaskDelayUntil (&ui16LastTime, ui32PollDelay / portTICK_RATE_MS);
@@ -168,8 +125,8 @@ void
 ADCIntHandler(void)
 {
 
-    // Trigger ADC conversion.
-    ADCProcessorTrigger(ADC0_BASE, 3);
+    // Set ADC conversion flag
+   xSemaphoreGiveFromISR(g_adcConvSemaphore, NULL);
 
     //
     // Clean up, clearing the interrupt
@@ -203,7 +160,7 @@ initADC (void)
 
     //
     // Register the interrupt handler
-    // ADCIntRegister (ADC0_BASE, 3, ADCIntHandler);
+    ADCIntRegister (ADC0_BASE, 3, ADCIntHandler);
 
     //
     // Enable interrupts for ADC0 sequence 3 (clears any outstanding interrupts)

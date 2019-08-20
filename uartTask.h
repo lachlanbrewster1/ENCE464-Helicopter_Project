@@ -8,8 +8,6 @@
 #ifndef UARTTASK_H_
 #define UARTTASK_H_
 
-#define BUF_SIZE 100
-
 
 //*****************************************************************************
 // Initializes the UART task.

@@ -50,6 +50,7 @@
 // FreeRTOS structures.
 extern xSemaphoreHandle g_pUARTMutex;
 extern xQueueHandle g_pwmWriteQueue;
+extern OperatingData_t g_programStatus;
 
 
 

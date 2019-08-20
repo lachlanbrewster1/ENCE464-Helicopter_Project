@@ -35,12 +35,19 @@
 #include "led_task.h"
 #include "buttons_switch_task.h"
 #include "queue_reader.h"
+#include "adcQueueTask.h"
+#include "adcTriggerTask.h"
+#include "uartTask.h"
+#include "pwmTask.h"
 #include "sharedConstants.h"
 #include "controller_task.h"
 #include "FreeRTOS.h"
 #include "task.h"
 #include "queue.h"
 #include "semphr.h"
+
+#define DATA_QUEUE_LENGTH               1
+#define DATA_QUEUE_ITEM_SIZE            sizeof(uint16_t)
 
 //*****************************************************************************
 //
@@ -85,8 +92,21 @@
 // The mutex that protects concurrent access of UART from multiple tasks.
 //
 //*****************************************************************************
-xSemaphoreHandle g_pUARTSemaphore;
-OperatingData_t g_programStatus;
+
+
+//*****************************************************************************
+// FreeRTOS structures used by program. Includes The mutex that protects
+// concurrent access of UART from multiple tasks, Queue for ADC and PWM task,
+// and queue for adc and button events
+//*****************************************************************************
+
+xQueueHandle g_buttsAdcEventQueue;
+xSemaphoreHandle g_queueMutex;        // Mutex to guard the event queue from being modified
+
+xSemaphoreHandle g_pUARTMutex;      // Mutex to guard the UART.
+xSemaphoreHandle g_adcConvSemaphore;    // Flag to signal the ADC value is ready to be written to buffer
+
+OperatingData_t g_programStatus;    //Structure containing operating data for the heli rig
 //*****************************************************************************
 //
 // The error routine that is called if the driver library encounters an error.
@@ -188,12 +208,25 @@ main(void)
     //
     // Print demo introduction.
     //
-    UARTprintf("\n\nWelcome to the EK-TM4C123GXL FreeRTOS Demo!\n");
+    UARTprintf("\n\nWelcome to the ENCE464 helirig thing!\n");
+
 
     //
-    // Create a mutex to guard the UART.
+    // Creating needed FreeRTOS structures
+    g_buttsAdcEventQueue = xQueueCreate(DATA_QUEUE_LENGTH, DATA_QUEUE_ITEM_SIZE);
+    g_pUARTMutex = xSemaphoreCreateMutex();
+    g_adcConvSemaphore = xSemaphoreCreateBinary();
+
+
     //
-    g_pUARTSemaphore = xSemaphoreCreateMutex();
+    // Create the UART task.
+    if(uartTaskInit() != 0)
+    {
+
+        while(1)
+        {
+        }
+    }
 
     //
     // Create the LED task.
@@ -233,6 +266,37 @@ main(void)
         {
         }
     }
+
+    //
+    // Create the ADC trigger task.
+    if(adcTriggerTaskInit() != 0)
+    {
+
+        while(1)
+        {
+        }
+    }
+
+    //
+    // Create the ADC queue task.
+    if(adcQueueTaskInit() != 0)
+    {
+
+        while(1)
+        {
+        }
+    }
+
+    //
+    // Create the PWM task.
+    if(pwmTaskInit() != 0)
+    {
+
+        while(1)
+        {
+        }
+    }
+
 
     // Initialise the program status
     initialiseProgramStatus (&g_programStatus);

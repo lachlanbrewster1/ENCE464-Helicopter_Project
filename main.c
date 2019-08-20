@@ -24,9 +24,6 @@
 
 #include <stdbool.h>
 #include <stdint.h>
-#include "stdio.h"
-#include "stdlib.h"
-
 #include "inc/hw_memmap.h"
 #include "inc/hw_types.h"
 #include "driverlib/gpio.h"
@@ -34,36 +31,67 @@
 #include "driverlib/rom.h"
 #include "driverlib/sysctl.h"
 #include "driverlib/uart.h"
-#include "driverlib/adc.h"
-#include "driverlib/pwm.h"
-#include "driverlib/gpio.h"
-#include "driverlib/sysctl.h"
-#include "driverlib/systick.h"
-#include "driverlib/interrupt.h"
-#include "driverlib/debug.h"
-
 #include "utils/uartstdio.h"
-#include "utils/ustdlib.h"
-
 #include "led_task.h"
-#include "switch_task.h"
+#include "buttons_switch_task.h"
+#include "queue_reader.h"
 #include "adcQueueTask.h"
 #include "adcTriggerTask.h"
 #include "uartTask.h"
 #include "pwmTask.h"
-
-
-#include "uart.h"
-
+#include "sharedConstants.h"
+#include "controller_task.h"
 #include "FreeRTOS.h"
 #include "task.h"
 #include "queue.h"
 #include "semphr.h"
 
-
 #define DATA_QUEUE_LENGTH               1
 #define DATA_QUEUE_ITEM_SIZE            sizeof(uint16_t)
 
+//*****************************************************************************
+//
+//! \addtogroup example_list
+//! <h1>FreeRTOS Example (freertos_demo)</h1>
+//!
+//! This application demonstrates the use of FreeRTOS on Launchpad.
+//!
+//! The application blinks the user-selected LED at a user-selected frequency.
+//! To select the LED press the left button and to select the frequency press
+//! the right button.  The UART outputs the application status at 115,200 baud,
+//! 8-n-1 mode.
+//!
+//! This application utilizes FreeRTOS to perform the tasks in a concurrent
+//! fashion.  The following tasks are created:
+//!
+//! - An LED task, which blinks the user-selected on-board LED at a
+//!   user-selected rate (changed via the buttons).
+//!
+//! - A Switch task, which monitors the buttons pressed and passes the
+//!   information to LED task.
+//!
+//! In addition to the tasks, this application also uses the following FreeRTOS
+//! resources:
+//!
+//! - A Queue to enable information transfer between tasks.
+//!
+//! - A Semaphore to guard the resource, UART, from access by multiple tasks at
+//!   the same time.
+//!
+//! - A non-blocking FreeRTOS Delay to put the tasks in blocked state when they
+//!   have nothing to do.
+//!
+//! For additional details on FreeRTOS, refer to the FreeRTOS web page at:
+//! http://www.freertos.org/
+//
+//*****************************************************************************
+
+
+//*****************************************************************************
+//
+// The mutex that protects concurrent access of UART from multiple tasks.
+//
+//*****************************************************************************
 
 
 //*****************************************************************************
@@ -76,11 +104,9 @@ xQueueHandle g_buttsAdcEventQueue;
 xSemaphoreHandle g_queueMutex;        // Mutex to guard the event queue from being modified
 
 xSemaphoreHandle g_pUARTMutex;      // Mutex to guard the UART.
-SemaphoreHandle_t g_adcConvSemaphore;    // Flag to signal the ADC value is ready to be written to buffer
+xSemaphoreHandle g_adcConvSemaphore;    // Flag to signal the ADC value is ready to be written to buffer
 
-
-
-
+OperatingData_t g_programStatus;    //Structure containing operating data for the heli rig
 //*****************************************************************************
 //
 // The error routine that is called if the driver library encounters an error.
@@ -111,7 +137,6 @@ vApplicationStackOverflowHook(xTaskHandle *pxTask, char *pcTaskName)
     {
     }
 }
-
 
 //*****************************************************************************
 //
@@ -149,10 +174,18 @@ ConfigureUART(void)
     UARTStdioConfig(0, 115200, 16000000);
 }
 
-
-
-
-
+/* Initialises the program status structure object */
+void
+initialiseProgramStatus (OperatingData_t* statusObject)
+{
+    statusObject->mode = landed;
+    statusObject->referenceAltDig = STARTING_REF_ALT_DIG;
+    statusObject->currentAltDig = STARTING_REF_ALT_DIG;
+    statusObject->referenceAltPercent = STARTING_REF_ALT_PCT;
+    statusObject->mainMotorPWMDuty = STARTING_MAIN_MOTOR_DUTY;
+    statusObject->pPartAlt = 0;
+    statusObject->iPartAlt = STARTING_ALT_INTG_ERROR;
+}
 //*****************************************************************************
 //
 // Initialize FreeRTOS and start the initial set of tasks.
@@ -163,55 +196,76 @@ main(void)
 {
     //
     // Set the clocking to run at 50 MHz from the PLL.
+    //
     ROM_SysCtlClockSet(SYSCTL_SYSDIV_4 | SYSCTL_USE_PLL | SYSCTL_XTAL_16MHZ |
                        SYSCTL_OSC_MAIN);
 
     //
     // Initialize the UART and configure it for 115,200, 8-N-1 operation.
+    //
     ConfigureUART();
-    //initialiseUSB_UART();
 
     //
-    // Print introduction.
+    // Print demo introduction.
+    //
     UARTprintf("\n\nWelcome to the ENCE464 helirig thing!\n");
+
 
     //
     // Creating needed FreeRTOS structures
     g_buttsAdcEventQueue = xQueueCreate(DATA_QUEUE_LENGTH, DATA_QUEUE_ITEM_SIZE);
     g_pUARTMutex = xSemaphoreCreateMutex();
-    g_adcConvSemaphore = xSemaphoreCreateMutex();
-
-//    //
-//    // Create the UART task.
-//    if(uartTaskInit() != 0)
-//    {
-//
-//        while(1)
-//        {
-//        }
-//    }
-
-//    //
-//    // Create the LED task.
-//    if(LEDTaskInit() != 0)
-//    {
-//
-//        while(1)
-//        {
-//        }
-//    }
-//
-//    //
-//    // Create the switch task.
-//    if(SwitchTaskInit() != 0)
-//    {
-//
-//        while(1)
-//        {
-//        }
-//    }
+    g_adcConvSemaphore = xSemaphoreCreateBinary();
 
 
+    //
+    // Create the UART task.
+    if(uartTaskInit() != 0)
+    {
+
+        while(1)
+        {
+        }
+    }
+
+    //
+    // Create the LED task.
+    //
+    // if(LEDTaskInit() != 0)
+    // {
+
+    //     while(1)
+    //     {
+    //     }
+    // }
+
+    //
+    // Create the switch task.
+    //
+    if(ButtonsSwitchTaskInit() != 0)
+    {
+
+        while(1)
+        {
+        }
+    }
+
+    // Create the hardware event queue reader task
+    if (HWEventQueueReaderTaskInit() != 0)
+    {
+        while (1)
+        {
+        }
+
+    }
+
+    // Create the controller task
+    if (ControllerTaskInit() != 0)
+    {
+        while(1)
+        {
+        }
+    }
 
     //
     // Create the ADC trigger task.
@@ -233,35 +287,31 @@ main(void)
         }
     }
 
-//
-//    //
-//    // Create the PWM task.
-//    if(pwmTaskInit() != 0)
-//    {
-//
-//        while(1)
-//        {
-//        }
-//    }
+    //
+    // Create the PWM task.
+    if(pwmTaskInit() != 0)
+    {
 
+        while(1)
+        {
+        }
+    }
+
+
+    // Initialise the program status
+    initialiseProgramStatus (&g_programStatus);
 
     //
     // Start the scheduler.  This should not return.
+    //
     vTaskStartScheduler();
 
     //
     // In case the scheduler returns for some reason, print an error and loop
     // forever.
+    //
+
     while(1)
     {
     }
 }
-
-
-
-
-
-
-
-
-
