@@ -127,8 +127,9 @@ adcQueueTask(void *pvParameters)
             } else {
 
                 if (circBufcounter >= BUF_SIZE) {
-                    // set binary semaphore to 1
                     calibrationDone = true;
+
+                    xSemaphoreGive(g_calibrationCompleteSemaphore);
 
                     // Create event message to send, calculate buffer average
                    eventItem.buttonADCEventType = ADC_BUFFER_UPDATED_EVENT;
