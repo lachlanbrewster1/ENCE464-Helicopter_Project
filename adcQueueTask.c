@@ -14,7 +14,11 @@
 #include "driverlib/debug.h"
 #include "utils/ustdlib.h"
 #include "circBufT.h"
-#include "adcTriggerTask.h"
+#include "adcQueueTask.h"
+#include "queue_reader.h"
+#include "sharedConstants.h"
+
+
 
 #include "stdio.h"
 #include "stdlib.h"
@@ -53,13 +57,13 @@ adcQueueTask(void *pvParameters)
 
     portTickType ui16LastTime;
     uint32_t ui32PollDelay = 20;
-	hw_evt_queue_item_e eventItem;
+    hwEventQueueItem_t eventItem;
 
     // Get the current tick count.
     ui16LastTime = xTaskGetTickCount();
 
     xSemaphoreTake(g_pUARTMutex, BLOCK_TIME_MAX);
-    UARTSend("ADCQueueTask starting.\r\n");
+    UARTprintf("\nADCQueueTask starting.\n");
     xSemaphoreGive(g_pUARTMutex);
 
 
@@ -68,7 +72,7 @@ adcQueueTask(void *pvParameters)
     while(1) {
 
 
-        if (xSemaphoreTake(g_adcConvSemaphore) == pdTRUE) {       // If flag is set
+        if (xSemaphoreTake(g_adcConvSemaphore, portMAX_DELAY) == pdTRUE) {       // If flag is set
 
             // Create event message to send, calculate buffer average
             eventItem.buttonADCEventType = ADC_BUFFER_UPDATED_EVENT;
@@ -92,9 +96,15 @@ adcQueueTask(void *pvParameters)
             if (xSemaphoreGive(g_adcConvSemaphore) == pdFAIL) {
                 // Shouldn't fail since this task still holds the semaphore
                 xSemaphoreTake(g_pUARTMutex, BLOCK_TIME_MAX);
-                UARTprintf("Failed to give semaphore back after ADC queue task!");
+                UARTprintf("\nFailed to give semaphore back after ADC queue task!\n");
                 xSemaphoreGive(g_pUARTMutex);
             }
+        } else {
+
+            xSemaphoreTake (g_pUARTMutex, portMAX_DELAY);
+            UARTprintf("\nCouldn't take semaphore for Q task\n");
+            xSemaphoreGive (g_pUARTMutex);
+
         }
 
         // Wait for the required amount of time.
@@ -113,7 +123,7 @@ adcQueueTaskInit(void)
 {
     //
     // Initialize ADC things
-    initADC();
+    // initADC(); // Done in ADC Trigger Task
 
     //
     // Create the ADC task.

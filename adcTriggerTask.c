@@ -16,6 +16,8 @@
 #include "circBufT.h"
 #include "adcTriggerTask.h"
 
+#include "sharedConstants.h"
+
 #include "stdio.h"
 #include "stdlib.h"
 
@@ -52,15 +54,16 @@ adcTriggerTask(void *pvParameters)
 
     portTickType ui16LastTime;
     uint32_t ui32PollDelay = 20;
-	hwEvent_t newQueueItem;
+
 
     // Get the current tick count.
     ui16LastTime = xTaskGetTickCount ();
 
 
     xSemaphoreTake(g_pUARTMutex, BLOCK_TIME_MAX);
-    UARTSend("ADCTriggerTask starting.\r\n");
+    UARTprintf("\nADCTriggerTask starting.\n");
     xSemaphoreGive(g_pUARTMutex);
+
 
 
     // TODO Create ISR and handler which triggers ADC conversion, ISR should be triggered at 300hz
@@ -69,14 +72,24 @@ adcTriggerTask(void *pvParameters)
     // Loop forever
     while(1) {
 
+
+        if (xSemaphoreTake(g_adcConvSemaphore, portMAX_DELAY) == pdTRUE) {
+            xSemaphoreTake(g_pUARTMutex, BLOCK_TIME_MAX);
+            UARTprintf("Succesfully took back ADC flag\n");
+            xSemaphoreGive(g_pUARTMutex);
+        }
+
+
+        // Trigger ADC conversion.
+        ADCProcessorTrigger(ADC0_BASE, 3);
+
+
         // If ADC value is ready
         if (ADCIntStatus(ADC0_BASE, 3, true)) {
 
              // Value to be read
             uint32_t ulValue;
 
-            // Trigger ADC conversion. // TODO to be done by ISR
-            ADCProcessorTrigger(ADC0_BASE, 3);
 
             //
             // Wait for sample
@@ -89,7 +102,7 @@ adcTriggerTask(void *pvParameters)
             xSemaphoreTake(g_pUARTMutex, BLOCK_TIME_MAX);
             char string[31];
             usnprintf (string, sizeof(string), "ADC value: %d\r\n", ulValue);
-            UARTSend(string);
+            UARTprintf(string);
             xSemaphoreGive(g_pUARTMutex);
 
             //
@@ -100,9 +113,13 @@ adcTriggerTask(void *pvParameters)
             if (xSemaphoreGive(g_adcConvSemaphore) == pdFAIL) {
                 // Shouldn't fail as this task holds the semaphore
                 xSemaphoreTake(g_pUARTMutex, BLOCK_TIME_MAX);
-                UARTSend("Failed to give semaphore for ADC trigger!");
+                UARTprintf("Failed to give semaphore for ADC flag!\n");
                 xSemaphoreGive(g_pUARTMutex);
 
+            } else {
+                xSemaphoreTake(g_pUARTMutex, BLOCK_TIME_MAX);
+                UARTprintf("Succesfully gave semaphore for ADC flag!\n");
+                xSemaphoreGive(g_pUARTMutex);
             }
 
         }
@@ -133,6 +150,7 @@ adcTriggerTaskInit(void)
     {
         return(1);
     }
+
 
     //
     // Success.
@@ -185,7 +203,7 @@ initADC (void)
 
     //
     // Register the interrupt handler
-    ADCIntRegister (ADC0_BASE, 3, ADCIntHandler);
+    // ADCIntRegister (ADC0_BASE, 3, ADCIntHandler);
 
     //
     // Enable interrupts for ADC0 sequence 3 (clears any outstanding interrupts)

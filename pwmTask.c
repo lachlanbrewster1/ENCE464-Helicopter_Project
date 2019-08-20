@@ -29,6 +29,8 @@
 #include "utils/ustdlib.h"
 #include "circBufT.h"
 #include "pwmTask.h"
+#include "sharedConstants.h"
+
 
 #include "FreeRTOS.h"
 #include "task.h"
@@ -45,10 +47,6 @@
 //*****************************************************************************
 #define PWMTASKSTACKSIZE        128         // Stack size in words
 
-// TEMPORARY // TODO
-//#define PRIORITY_PWM_TASK       4
-//#define BLOCK_TIME_MAX          1
-
 // FreeRTOS structures.
 extern xSemaphoreHandle g_pUARTMutex;
 extern xQueueHandle g_pwmWriteQueue;
@@ -63,15 +61,14 @@ pwmTask(void *pvParameters)
 {
 
     portTickType ui16LastTime;
-    uint32_t ui32PollDelay = CONTROLLER_TASK_POLL_DELAY;
-	hwEvent_t newQueueItem;
+    uint32_t ui32PollDelay = 25;
 
     // Get the current tick count.
     ui16LastTime = xTaskGetTickCount ();
 
 
     xSemaphoreTake(g_pUARTMutex, BLOCK_TIME_MAX);
-    UARTSend("PWMTask starting.\r\n");
+    UARTprintf("PWMTask starting.\r\n");
     xSemaphoreGive(g_pUARTMutex);
 
 

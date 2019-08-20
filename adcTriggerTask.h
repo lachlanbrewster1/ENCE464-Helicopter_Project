@@ -8,7 +8,7 @@
 #ifndef ADCTRIGGERTASK_H_
 #define ADCTRIGGERTASK_H_
 
-#define BUF_SIZE 100
+// #define BUF_SIZE 100
 
 
 //*****************************************************************************

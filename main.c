@@ -50,6 +50,8 @@
 #include "adcQueueTask.h"
 #include "adcTriggerTask.h"
 #include "uartTask.h"
+#include "pwmTask.h"
+
 
 #include "uart.h"
 
@@ -113,6 +115,46 @@ vApplicationStackOverflowHook(xTaskHandle *pxTask, char *pcTaskName)
 
 //*****************************************************************************
 //
+// Configure the UART and its pins.  This must be called before UARTprintf().
+//
+//*****************************************************************************
+void
+ConfigureUART(void)
+{
+    //
+    // Enable the GPIO Peripheral used by the UART.
+    //
+    ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA);
+
+    //
+    // Enable UART0
+    //
+    ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_UART0);
+
+    //
+    // Configure GPIO Pins for UART mode.
+    //
+    ROM_GPIOPinConfigure(GPIO_PA0_U0RX);
+    ROM_GPIOPinConfigure(GPIO_PA1_U0TX);
+    ROM_GPIOPinTypeUART(GPIO_PORTA_BASE, GPIO_PIN_0 | GPIO_PIN_1);
+
+    //
+    // Use the internal 16MHz oscillator as the UART clock source.
+    //
+    UARTClockSourceSet(UART0_BASE, UART_CLOCK_PIOSC);
+
+    //
+    // Initialize the UART for console I/O.
+    //
+    UARTStdioConfig(0, 115200, 16000000);
+}
+
+
+
+
+
+//*****************************************************************************
+//
 // Initialize FreeRTOS and start the initial set of tasks.
 //
 //*****************************************************************************
@@ -126,8 +168,8 @@ main(void)
 
     //
     // Initialize the UART and configure it for 115,200, 8-N-1 operation.
-    //ConfigureUART();
-    initialiseUSB_UART();
+    ConfigureUART();
+    //initialiseUSB_UART();
 
     //
     // Print introduction.
@@ -137,8 +179,7 @@ main(void)
     // Creating needed FreeRTOS structures
     g_buttsAdcEventQueue = xQueueCreate(DATA_QUEUE_LENGTH, DATA_QUEUE_ITEM_SIZE);
     g_pUARTMutex = xSemaphoreCreateMutex();
-    g_adcConvSemaphore = xSemaphoreCreateBinary();
-
+    g_adcConvSemaphore = xSemaphoreCreateMutex();
 
 //    //
 //    // Create the UART task.
@@ -170,15 +211,7 @@ main(void)
 //        }
 //    }
 
-//    //
-//    // Create the ADC queue task.
-//    if(adcQueueTaskInit() != 0)
-//    {
-//
-//        while(1)
-//        {
-//        }
-//    }
+
 
     //
     // Create the ADC trigger task.
@@ -191,14 +224,25 @@ main(void)
     }
 
     //
-    // Create the PWM task.
-    if(pwmTaskInit() != 0)
+    // Create the ADC queue task.
+    if(adcQueueTaskInit() != 0)
     {
 
         while(1)
         {
         }
     }
+
+//
+//    //
+//    // Create the PWM task.
+//    if(pwmTaskInit() != 0)
+//    {
+//
+//        while(1)
+//        {
+//        }
+//    }
 
 
     //
@@ -221,39 +265,3 @@ main(void)
 
 
 
-
-////*****************************************************************************
-////
-//// Configure the UART and its pins.  This must be called before UARTprintf().
-////
-////*****************************************************************************
-//void
-//ConfigureUART(void)
-//{
-//    //
-//    // Enable the GPIO Peripheral used by the UART.
-//    //
-//    ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA);
-//
-//    //
-//    // Enable UART0
-//    //
-//    ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_UART0);
-//
-//    //
-//    // Configure GPIO Pins for UART mode.
-//    //
-//    ROM_GPIOPinConfigure(GPIO_PA0_U0RX);
-//    ROM_GPIOPinConfigure(GPIO_PA1_U0TX);
-//    ROM_GPIOPinTypeUART(GPIO_PORTA_BASE, GPIO_PIN_0 | GPIO_PIN_1);
-//
-//    //
-//    // Use the internal 16MHz oscillator as the UART clock source.
-//    //
-//    UARTClockSourceSet(UART0_BASE, UART_CLOCK_PIOSC);
-//
-//    //
-//    // Initialize the UART for console I/O.
-//    //
-//    UARTStdioConfig(0, 115200, 16000000);
-//}

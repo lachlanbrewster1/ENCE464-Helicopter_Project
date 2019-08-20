@@ -58,8 +58,14 @@ static void
 uartTask(void *pvParameters)
 {
 
+    portTickType ui16LastTime;
+    uint32_t ui32PollDelay = 25;
+
+    // Get the current tick count.
+    ui16LastTime = xTaskGetTickCount ();
+
     xSemaphoreTake(g_pUARTMutex, BLOCK_TIME_MAX);
-    UARTSend("UART task starting.\r\n");
+    UARTprintf("\nUART task starting.\n");
     xSemaphoreGive(g_pUARTMutex);
 
 
@@ -68,9 +74,11 @@ uartTask(void *pvParameters)
     while(1) {
 
         xSemaphoreTake(g_pUARTMutex, BLOCK_TIME_MAX);
-        UARTSend("HELI INFO.\r\n");
+        UARTprintf("HELI INFO.\r\n");
         xSemaphoreGive(g_pUARTMutex);
 
+        // Wait for the required amount of time.
+        vTaskDelayUntil (&ui16LastTime, ui32PollDelay / portTICK_RATE_MS);
 
     }
 

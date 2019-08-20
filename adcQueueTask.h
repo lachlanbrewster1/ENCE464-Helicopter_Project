@@ -8,7 +8,7 @@
 #ifndef ADCQUEUETASK_H_
 #define ADCQUEUETASK_H_
 
-#define BUF_SIZE 100
+// #define BUF_SIZE 100
 
 
 //*****************************************************************************
