@@ -65,7 +65,7 @@ uartTask(void *pvParameters)
     ui16LastTime = xTaskGetTickCount ();
 
     xSemaphoreTake(g_pUARTMutex, BLOCK_TIME_MAX);
-    UARTprintf("\nUART task starting.\n");
+    UARTprintf("UART task starting.\n");
     xSemaphoreGive(g_pUARTMutex);
 
 
@@ -104,6 +104,8 @@ uartTaskInit(void)
     {
         return(1);
     }
+
+    UARTprintf("UART task initialized.\n");
 
     //
     // Success.

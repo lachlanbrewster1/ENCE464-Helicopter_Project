@@ -69,7 +69,7 @@ pwmTask(void *pvParameters)
 
 
     xSemaphoreTake(g_pUARTMutex, BLOCK_TIME_MAX);
-    UARTprintf("PWMTask starting.\r\n");
+    UARTprintf("PWMTask starting.\n");
     xSemaphoreGive(g_pUARTMutex);
 
 
@@ -116,6 +116,8 @@ pwmTaskInit(void)
     {
         return(1);
     }
+
+    UARTprintf("PWM task initialized.\n");
 
     //
     // Success.

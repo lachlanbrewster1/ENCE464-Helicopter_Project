@@ -41,7 +41,7 @@ static uint16_t landed_ref;      // Landed reference of the helicopter
 
 // FreeRTOS structures.
 extern xSemaphoreHandle g_pUARTMutex;
-extern xSemaphoreHandle g_adcConvSemaphore;
+xSemaphoreHandle g_adcConvSemaphore;
 
 
 //*****************************************************************************
@@ -61,7 +61,7 @@ adcTriggerTask(void *pvParameters)
 
 
     xSemaphoreTake(g_pUARTMutex, BLOCK_TIME_MAX);
-    UARTprintf("\nADCTriggerTask starting.\n");
+    UARTprintf("ADCTriggerTask starting.\n");
     xSemaphoreGive(g_pUARTMutex);
 
 
@@ -69,17 +69,8 @@ adcTriggerTask(void *pvParameters)
     // Loop forever
     while(1) {
 
-
-        if (xSemaphoreTake(g_adcConvSemaphore, portMAX_DELAY) == pdTRUE) {
-            xSemaphoreTake(g_pUARTMutex, BLOCK_TIME_MAX);
-            UARTprintf("Succesfully took back ADC flag\n");
-            xSemaphoreGive(g_pUARTMutex);
-        }
-
-
         // Trigger ADC conversion.
         ADCProcessorTrigger(ADC0_BASE, 3);
-
 
         // Wait for the required amount of time.
         vTaskDelayUntil (&ui16LastTime, ui32PollDelay / portTICK_RATE_MS);
@@ -99,6 +90,8 @@ adcTriggerTaskInit(void)
     // Initialize ADC things
     initADC();
 
+    g_adcConvSemaphore = xSemaphoreCreateBinary();
+
     //
     // Create the ADC task.
     if(xTaskCreate(adcTriggerTask, (const portCHAR *)"ADC",
@@ -108,6 +101,7 @@ adcTriggerTaskInit(void)
         return(1);
     }
 
+    UARTprintf("ADC trigger task initialized.\n");
 
     //
     // Success.
@@ -126,7 +120,7 @@ ADCIntHandler(void)
 {
 
     // Set ADC conversion flag
-   xSemaphoreGiveFromISR(g_adcConvSemaphore, NULL);
+    xSemaphoreGiveFromISR(g_adcConvSemaphore, NULL);
 
     //
     // Clean up, clearing the interrupt

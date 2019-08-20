@@ -1,5 +1,7 @@
 #include <stdint.h>
 #include <stdbool.h>
+#include "stdbool.h"
+
 
 #include <priorities.h>
 
@@ -43,8 +45,9 @@ static uint16_t landed_ref;      // Landed reference of the helicopter
 
 // FreeRTOS structures.
 extern xSemaphoreHandle g_pUARTMutex;
-extern xSemaphoreHandle g_adcConvSemaphore;
 extern xQueueHandle g_buttsAdcEventQueue;
+xSemaphoreHandle g_adcConvSemaphore;
+xSemaphoreHandle g_calibrationCompleteSemaphore;
 
 
 //*****************************************************************************
@@ -62,10 +65,13 @@ adcQueueTask(void *pvParameters)
     // Get the current tick count.
     ui16LastTime = xTaskGetTickCount();
 
-    xSemaphoreTake(g_pUARTMutex, BLOCK_TIME_MAX);
-    UARTprintf("\nADCQueueTask starting.\n");
-    xSemaphoreGive(g_pUARTMutex);
+    bool calibrationDone = false;
+    uint32_t circBufcounter = 0;
 
+
+    xSemaphoreTake(g_pUARTMutex, BLOCK_TIME_MAX);
+    UARTprintf("ADCQueueTask starting.\n");
+    xSemaphoreGive(g_pUARTMutex);
 
     //
     // Loop forever
@@ -76,7 +82,7 @@ adcQueueTask(void *pvParameters)
             // If ADC value is ready
             if (ADCIntStatus(ADC0_BASE, 3, true)) {
 
-                 // Value to be read
+                // Value to be read
                 uint32_t ulValue;
 
                 //
@@ -93,33 +99,61 @@ adcQueueTask(void *pvParameters)
                 // Place it in the circular buffer (advancing write index)
                 writeCircBuf (&g_inBuffer, ulValue);
 
+
+                if (!calibrationDone) {circBufcounter++;}
+
             }
 
-            // Create event message to send, calculate buffer average
-            eventItem.buttonADCEventType = ADC_BUFFER_UPDATED_EVENT;
-            eventItem.adcBufferAverage = calculateMeanHeight();
 
-            // Append event message to the queue
-            if (xQueueSend (g_buttsAdcEventQueue, &eventItem, portMAX_DELAY) != pdPASS)
-            {
-                // Queue is full - not good. Should never happen
-                xSemaphoreTake (g_pUARTMutex, portMAX_DELAY);
-                UARTprintf("\nQueue full. This should never happen.\n");
-                xSemaphoreGive (g_pUARTMutex);
-                while(1)
+            if (calibrationDone) {
+
+                // Create event message to send, calculate buffer average
+                eventItem.buttonADCEventType = ADC_BUFFER_UPDATED_EVENT;
+                eventItem.adcBufferAverage = calculateMeanHeight();
+
+                // Append event message to the queue
+                if (xQueueSend (g_buttsAdcEventQueue, &eventItem, portMAX_DELAY) != pdPASS)
                 {
-                    // Infinite loop
+                    // Queue is full - not good. Should never happen
+                    xSemaphoreTake (g_pUARTMutex, portMAX_DELAY);
+                    UARTprintf("\nQueue full. This should never happen.\n");
+                    xSemaphoreGive (g_pUARTMutex);
+                    while(1)
+                    {
+                        // Infinite loop
+                    }
                 }
+
+            } else {
+
+                if (circBufcounter >= BUF_SIZE) {
+                    // set binary semaphore to 1
+                    calibrationDone = true;
+
+                    // Create event message to send, calculate buffer average
+                   eventItem.buttonADCEventType = ADC_BUFFER_UPDATED_EVENT;
+                   eventItem.adcBufferAverage = calculateMeanHeight();
+
+                   // Append event message to the queue
+                   if (xQueueSend (g_buttsAdcEventQueue, &eventItem, portMAX_DELAY) != pdPASS)
+                   {
+                       // Queue is full - not good. Should never happen
+                       xSemaphoreTake (g_pUARTMutex, portMAX_DELAY);
+                       UARTprintf("\nQueue full. This should never happen.\n");
+                       xSemaphoreGive (g_pUARTMutex);
+                       while(1)
+                       {
+                           // Infinite loop
+                       }
+                   }
+
+                }
+
+
             }
 
 
-            // Reset adcTriggerFlag
-            if (xSemaphoreGive(g_adcConvSemaphore) == pdFAIL) {
-                // Shouldn't fail since this task still holds the semaphore
-                xSemaphoreTake(g_pUARTMutex, BLOCK_TIME_MAX);
-                UARTprintf("\nFailed to give semaphore back after ADC queue task!\n");
-                xSemaphoreGive(g_pUARTMutex);
-            }
+
         } else {
 
             xSemaphoreTake (g_pUARTMutex, portMAX_DELAY);
@@ -146,6 +180,11 @@ adcQueueTaskInit(void)
     // Initialize ADC things
     // initADC(); // Done in ADC Trigger Task
 
+    //TODO Create calibration semaphore
+    g_calibrationCompleteSemaphore = xSemaphoreCreateBinary();
+    g_adcConvSemaphore = xSemaphoreCreateBinary();
+
+
     //
     // Create the ADC task.
     if(xTaskCreate(adcQueueTask, (const portCHAR *)"ADC",
@@ -154,6 +193,8 @@ adcQueueTaskInit(void)
     {
         return(1);
     }
+
+    UARTprintf("ADC Queue task initialized.\n");
 
     //
     // Success.
