@@ -37,10 +37,12 @@ uint32_t g_ui32Flags;
 volatile uint32_t g_ui32IntCount;
 
 //Input Edge Time Capture include and defines
-volatile double g_duty = 0, g_start = 0, g_stop = 0;
-volatile double g_duty_prev = 0;
+volatile int32_t g_duty = 0, g_start = 0, g_stop = 0;
+volatile int32_t g_duty_prev = 0;
+#define DUTY_SCALAR 800
+#define VOLT_BITS 2000 //This is the rate of change of bits to voltage for the bit conversion for the DAC
 
-volatile int32_t state = 0;
+volatile int8_t state = 0;
 
 #define PWM_Frequency 250 //Hz
 #define PWM_DIVIDER_CODE     SYSCTL_PWMDIV_4
@@ -60,11 +62,25 @@ static const uint32_t dacWriteCmdValue = 0x00003800; // First four zeros are red
 #define WEIGHT        0.08
 #define DELTA_T       0.004
 
-volatile double g_current_height = 0;     //Current height of the helicopter initialised to zero
-volatile double g_prev_height = 0;
+//volatile double g_current_height = 0;     //Current height of the helicopter initialised to zero
+//volatile double g_prev_height = 0;
+//
+//volatile double g_MR_t = 0;
+//volatile double g_MR_t_prev = 0;
+//
+//volatile double g_Force = 0;
+//
+//volatile double g_G_t = 0;
+//volatile double g_G_t_prev = 0;
+//
+//volatile double g_HM_t = 0;
+//volatile double g_HM_t_prev = 0;
 
-volatile double g_MR_t = 0;
-volatile double g_MR_t_prev = 0;
+
+volatile double g_height = 0;     //Current height of the helicopter initialised to zero
+
+volatile int32_t g_MR_t = 0;
+volatile int32_t g_MR_t_prev = 0;
 
 volatile double g_Force = 0;
 
@@ -74,10 +90,12 @@ volatile double g_G_t_prev = 0;
 volatile double g_HM_t = 0;
 volatile double g_HM_t_prev = 0;
 
+int32_t index = 0;
+int16_t bits;
 
 
 //Look-up Table
-struct LUT_PWM
+/*struct LUT_PWM
 {
     int PWM;
     double force;
@@ -102,7 +120,9 @@ static struct LUT_PWM LUT_PWM_DATA[] =
     { 70 , 1.6039 },
     { 75 , 1.6824 },
     { 80 , 1.7707 }
-};
+};*/
+
+double LUT_PWM_DATA[17] = {0, 0.0268, 0.1609, 0.3142, 0.4748, 0.6190, 0.7626, 0.8796, 1.0104, 1.1098, 1.2155, 1.3227, 1.4339, 1.5124, 1.6039, 1.6824, 1.7707};
 
 //enum { NUM_LUT_PWM = sizeof(LUT_PWM_DATA) / sizeof(LUT_PWM_DATA[1]) };
 
@@ -111,114 +131,25 @@ static struct LUT_PWM LUT_PWM_DATA[] =
 //*****************************************************************************
 // Local prototypes
 //*****************************************************************************
-void helicopterHeight (void);
+//void helicopterHeight1 (void);
+void helicopterHeight2 (void);
 void initTimer (void);
 void initDACSignals (void);
 void timer_int (void);
 void dutyCycle (void);
-int conversion (void);
-void DAC_Inputs (int16_t bits);
+void DAC_Transmitt (void);
 
 // ----------------------------------------------------------------------------
 // Start of interrupt handler definitions
 // ----------------------------------------------------------------------------
 
-//*****************************************************************************
-// The interrupt handler for the for SysTick interrupt.
-//*****************************************************************************
-//void
-//sysTickIntHandler (void)
-//{
-//    uint8_t i;
-//    for (i = 0; i < NUM_TASKS; i++)
-//    {
-//        if ((scheduledTasks[i].ticks == 0) && scheduledTasks[i].enabled)
-//        {
-//            scheduledTasks[i].ready = true;
-//            scheduledTasks[i].ticks = scheduledTasks[i].timingPeriod;
-//        }
-//        else
-//        {
-//            scheduledTasks[i].ticks -= 1;
-//        }
-//    }
-//}
-
-// ----------------------------------------------------------------------------
-// End of interrupt handler definitions
-// ----------------------------------------------------------------------------
-// Start of task definitions
-// ----------------------------------------------------------------------------
-// Definitions of task functions for triggering ADC conversions,
-// updating the states of the buttons and switches, updating
-// the controller, updating the PWM, refreshing the display
-// and transmitting current program data with the UART.
-// ****************************************************************************
-
-//*****************************************************************************
-// ADC task: triggers an ADC conversion and updates the current altitude.
-// Also sets the zero altitude reference ADC value.
-//*****************************************************************************
-
-//void
-//taskUpdateADC (void)
-//{
-//    // Trigger an ADC conversion, this will call the adcIntHandler to do the sampling.
-//    ADCProcessorTrigger (ADC1_BASE, ADC_SEQUENCE_NUM);
-//    // Update the current altitude.
-//    programData.currentAltitude = signalAveraging ();
-//    // Initial slight delay process of 30 SysTick cycles to ensure the buffer fills at program start
-//    // before setting the landed ADC value.
-//    if (initLandedADCTicks >= BUF_SIZE && !(initLandedADCDone))
-//    {
-//        landedAltADCVal = signalAveraging ();
-//        initLandedADCDone = true;
-//    }
-//    else
-//    {
-//        initLandedADCTicks += 1;
-//    }
-//}
-
-//*****************************************************************************
-// Display task: updates the display with current program values.
-//*****************************************************************************
-//void
-//taskUpdateDisplay (void)
-//{
-//    // Update the display using the current altitude and yaw, which are contained in the program struct
-//    displayStats (&programData, landedAltADCVal);
-//}
-
-// ----------------------------------------------------------------------------
-// End of task definitions
-// ----------------------------------------------------------------------------
-
-//*****************************************************************************
-// Initialises the scheduled tasks with their timing periods, enabled status
-// and their function pointer.
-//*****************************************************************************
-//void
-//initialiseScheduledTasks (Task_t* arrayPointer)
-//{
-//    uint8_t i;
-//    for (i = 0; i < NUM_TASKS; i++)
-//    {
-//       arrayPointer[i].timingPeriod = taskTimingPeriods[i];
-//       arrayPointer[i].ticks = taskTimingPeriods[i];
-//       arrayPointer[i].ready = false;
-//       arrayPointer[i].enabled = taskEnableStatus[i];
-//       arrayPointer[i].run = taskFctnPointers[i];
-//    }
-//}
-
 
 
 //*****************************************************************************
-// This is attempt 2 to model the behaviour of the helicopter
+// Code for the behaviour of the helicopter based on Phil Bones model
 //*****************************************************************************
-void
-helicopterHeight (void)
+/*void
+helicopterHeight1 (void)
 {
     //Constants
     double k_1 = 1;
@@ -230,8 +161,8 @@ helicopterHeight (void)
     g_MR_t = g_MR_t_prev*(1 - DELTA_T/t_1) + k_1*g_duty_prev/t_1;
 
     //LUT stuff
-    //uint32_t index = 0;
-    //index = round(85*g_MR_t/8000);
+    uint32_t index = 0;
+    index = round(85*g_MR_t/8000);
     //index = 85*g_MR_t/8000;
     g_Force = LUT_PWM_DATA[index].force;
 
@@ -242,13 +173,63 @@ helicopterHeight (void)
     g_HM_t = g_HM_t_prev*(1 - DELTA_T/t_2) + k_2*g_G_t_prev/t_2;
 
     //Integrator Limited
-    g_current_height += g_HM_t*DELTA_T;
+    g_height += g_HM_t*DELTA_T*SCALAR;
 
     //Keep safes incase of the worst extremes
-    if(g_current_height < 0) {
-        g_current_height = 0;
-    } else if (g_current_height > 100) {
-        g_current_height = 100;
+    if(g_height < 0) {
+        g_height = 0;
+    } else if (g_height > 100) {
+        g_height = 100;
+    }
+
+    //Update the Variables.
+    g_duty_prev = g_duty;
+    g_MR_t_prev = g_MR_t;
+    g_G_t_prev = g_G_t;
+    g_HM_t_prev = g_HM_t;
+
+}*/
+
+
+
+//*****************************************************************************
+// Code for the behaviour of the helicopter based on Phil Bones model
+//*****************************************************************************
+void
+helicopterHeight2 (void)
+{
+    //Constants
+    int k_1 = 1;
+    double t_1 = 0.1;
+    double k_2 = 1.53;
+    double t_2 = 0.638;
+
+    //Main Rotor part of the Heli Rig Model
+    g_MR_t = k_1*g_duty_prev/t_1;
+
+    //LUT stuff
+    index = round(g_MR_t*17/900);
+    if (index < 0) {
+        index = 0;
+    } else if (index > 17) {
+        index = 17;
+    }
+    g_Force = LUT_PWM_DATA[index];
+
+    //Gravitational force on the system effect on Heli Rig Model
+    g_G_t = g_Force - GRAVITY * WEIGHT;
+
+    //Helicopter Mount part of the Heli Rig Model
+    g_HM_t = k_2*g_G_t_prev/t_2;
+
+    //Integrator Limited
+    g_height += g_HM_t*DELTA_T;
+
+    //Keep safes incase of the worst extremes
+    if(g_height < 0) {
+        g_height = 0;
+    } else if (g_height > 100) {
+        g_height = 100;
     }
 
     //Update the Variables.
@@ -295,10 +276,16 @@ initTimer(void)
 void
 initDACSignals (void)
 {
-    //For the Chip Select Signal (PIN 2), SCK (PIN 4) and LDAC (PIN 5)
+    //For the Chip Select Signal (PIN 1), SHDN (PIN 4) and LDAC (PIN 3)
     SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOB);
-    GPIOPinConfigure(SYSCTL_PERIPH_GPIOB);
-    GPIOPinTypeGPIOOutput(GPIO_PORTB_BASE, GPIO_PIN_2 | GPIO_PIN_4 | GPIO_PIN_5);
+
+    while(!SysCtlPeripheralReady(SYSCTL_PERIPH_GPIOB))
+    {
+
+    }
+
+    //GPIOPinConfigure(SYSCTL_PERIPH_GPIOB);
+    GPIOPinTypeGPIOOutput(GPIO_PORTB_BASE, GPIO_PIN_1 | GPIO_PIN_6 | GPIO_PIN_3);
 }
 
 
@@ -332,7 +319,7 @@ dutyCycle(void)
     if (state == 0) {
         g_stop = TimerValueGet(TIMER0_BASE, TIMER_A);
         //Only want to calculate on the falling edge or else duty will go from positive to negative.
-        g_duty = (g_stop - g_start)/800;
+        g_duty = (g_stop - g_start)/DUTY_SCALAR;
     } else { //If the signal is leading edge
         g_start = TimerValueGet(TIMER0_BASE, TIMER_A);
 
@@ -344,41 +331,21 @@ dutyCycle(void)
 
 
 //*****************************************************************************
-// converts the data into a suitable format for the DAC
-//*****************************************************************************
-int
-conversion (void)
-{
-    double voltage = 2 - g_current_height/100;
-
-    int16_t bits = 8190 - 4095*voltage;
-
-    return bits;
-}
-
-
-
-//*****************************************************************************
 // Functions to change all the signals of the DAC
 //*****************************************************************************
 void
-DAC_Inputs (int16_t bits)
+DAC_Transmitt (void)
 {
-    //Set Chip Select to Low for the transmission of the Data
-    GPIOPinWrite (GPIO_PORTB_BASE, GPIO_PIN_2, 0);
+    //converts the height to the voltage
+    double voltage = 2 - g_height/100;
 
-    //Set the LDAC signal to High
-    GPIOPinWrite (GPIO_PORTB_BASE, GPIO_PIN_5, 1);
+    //Converts the voltage to a bit string
+    bits = VOLT_BITS*voltage;
+
+    bits += 12288; //This is equivalent to 0011 0000 0000 0000 which is used to set the bits of the headers for the 12-bit DAC
 
     //Send the Bits of data to the SDI
-    bits = conversion();
-    bits += 4096; //This is equivalent to 0001 0000 0000 0000 which is used to set the bits of the headers for the 12-bit DAC
     SSIDataPut(SSI0_BASE, bits);
-
-
-    //Rest the Chip Select and LDAC lines
-    GPIOPinWrite (GPIO_PORTB_BASE, GPIO_PIN_2, 1);
-    GPIOPinWrite (GPIO_PORTB_BASE, GPIO_PIN_5, 0);
 }
 
 
@@ -407,17 +374,20 @@ main (void)
     // Enable the SSI module
     SSIEnable (SSI0_BASE);
 
-
-
-
     //Configure to receive input PWM signals
     initTimer();
 
-    //Initalise all the DAC signals. That is the Chip Select and LDAC
+    //Initalise all the DAC signals. That is the Chip Select, SHDN and LDAC
     initDACSignals();
 
-    //local variable for the bits sent to the DAC
-    int16_t bits;
+    //Preset the Chip Select Signal to High
+    GPIOPinWrite (GPIO_PORTB_BASE, GPIO_PIN_1, GPIO_PIN_1);
+
+    //Set the LDAC signal to High
+    GPIOPinWrite (GPIO_PORTB_BASE, GPIO_PIN_3, GPIO_PIN_3);
+
+    //Set the SHDN signal to High
+    GPIOPinWrite (GPIO_PORTB_BASE, GPIO_PIN_6, GPIO_PIN_6);
 
     while(true)
     {
@@ -428,9 +398,24 @@ main (void)
             } else if
         }*/
 
-        helicopterHeight ();
+        helicopterHeight2();
 
-        DAC_Inputs(bits);
+        //Set Chip Select to Low for the transmission of the Data
+        GPIOPinWrite (GPIO_PORTB_BASE, GPIO_PIN_1, 0);
+
+        DAC_Transmitt();
+
+        SysCtlDelay(50);
+
+        //Rest the Chip Select line to high
+        GPIOPinWrite (GPIO_PORTB_BASE, GPIO_PIN_1, GPIO_PIN_1);
+
+        //Toggle LDAC
+        GPIOPinWrite (GPIO_PORTB_BASE, GPIO_PIN_3, 0);
+
+        SysCtlDelay(50);
+
+        GPIOPinWrite (GPIO_PORTB_BASE, GPIO_PIN_3, GPIO_PIN_3);
     }
 }
 

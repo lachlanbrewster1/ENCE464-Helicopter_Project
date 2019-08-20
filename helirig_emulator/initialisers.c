@@ -56,8 +56,8 @@ peripheralReset(void)
     // Reset GPIOA peripheral (Used for Chip Select on the DAC)
     SysCtlPeripheralReset (SYSCTL_PERIPH_GPIOC);
 
-    // Reset GPIOA peripheral (Used for timer)
-    SysCtlPeripheralReset (SYSCTL_PERIPH_GPIOC);
+    // Reset DAC functions
+    SysCtlPeripheralReset (SYSCTL_PERIPH_GPIOB);
 
     // Reset SSI peripheral
     SysCtlPeripheralReset (SYSCTL_PERIPH_SSI0);
