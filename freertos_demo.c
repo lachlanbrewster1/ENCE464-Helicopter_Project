@@ -213,20 +213,19 @@ main(void)
 
     //
     // Creating needed FreeRTOS structures
-    g_buttsAdcEventQueue = xQueueCreate(DATA_QUEUE_LENGTH, DATA_QUEUE_ITEM_SIZE);
     g_pUARTMutex = xSemaphoreCreateMutex();
-    g_adcConvSemaphore = xSemaphoreCreateBinary();
+    // g_adcConvSemaphore = xSemaphoreCreateBinary();
 
 
-    //
-    // Create the UART task.
-    if(uartTaskInit() != 0)
-    {
-
-        while(1)
-        {
-        }
-    }
+//    //
+//    // Create the UART task.
+//    if(uartTaskInit() != 0)
+//    {
+//
+//        while(1)
+//        {
+//        }
+//    }
 
     //
     // Create the LED task.
