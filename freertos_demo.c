@@ -178,7 +178,7 @@ ConfigureUART(void)
 void
 initialiseProgramStatus (OperatingData_t* statusObject)
 {
-    statusObject->mode = landed;
+    statusObject->mode = calibrate;
     statusObject->referenceAltDig = STARTING_REF_ALT_DIG;
     statusObject->currentAltDig = STARTING_REF_ALT_DIG;
     statusObject->referenceAltPercent = STARTING_REF_ALT_PCT;
@@ -215,15 +215,15 @@ main(void)
     // Creating needed FreeRTOS structures
     g_pUARTMutex = xSemaphoreCreateMutex();
 
-//    //
-//    // Create the UART task.
-//    if(uartTaskInit() != 0)
-//    {
-//
-//        while(1)
-//        {
-//        }
-//    }
+    //
+    // Create the UART task.
+    if(uartTaskInit() != 0)
+    {
+
+        while(1)
+        {
+        }
+    }
 
     //
     // Create the LED task.
