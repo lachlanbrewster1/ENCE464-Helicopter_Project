@@ -100,7 +100,7 @@
 // and queue for adc and button events
 //*****************************************************************************
 
-xQueueHandle g_buttsAdcEventQueue;
+
 xSemaphoreHandle g_queueMutex;        // Mutex to guard the event queue from being modified
 
 xSemaphoreHandle g_pUARTMutex;      // Mutex to guard the UART.
@@ -214,8 +214,6 @@ main(void)
     //
     // Creating needed FreeRTOS structures
     g_pUARTMutex = xSemaphoreCreateMutex();
-    // g_adcConvSemaphore = xSemaphoreCreateBinary();
-
 
 //    //
 //    // Create the UART task.
