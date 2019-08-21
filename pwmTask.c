@@ -72,29 +72,29 @@ pwmTask(void *pvParameters)
     UARTprintf("PWMTask starting.\n");
     xSemaphoreGive(g_pUARTMutex);
 
-
     //
     // Loop forever
     while(1) {
 
+        // Modes: idle, calibrate, landed, flying, landing
 
-        // Get values from program status // TODO what import do I use?
-        //uint32_t mainMotorPWMDuty = operating_data_t_s.mainMotorPWMDuty;
+        if (g_programStatus.mode == flying || g_programStatus.mode == landing) {
+            PWMOutputState (PWM_MAIN_BASE, PWM_MAIN_OUTBIT, true);
 
-        uint32_t mainMotorPWMDuty = 30;
+            // Get values from program status
+            uint32_t mainMotorPWMDuty = g_programStatus.mainMotorPWMDuty;
 
+            //
+            // Set duty cycle of main rotor
+            setDutyCycle(mainMotorPWMDuty, MAIN_ROTOR);
 
-        //
-        // Set duty cycle of main rotor
-        // Might need to scale it first? What kind of value is received?
-        setDutyCycle(mainMotorPWMDuty, MAIN_ROTOR);
-
+        } else {
+            PWMOutputState (PWM_MAIN_BASE, PWM_MAIN_OUTBIT, false);
+        }
 
 		// Wait for the required amount of time.
 		vTaskDelayUntil (&ui16LastTime, ui32PollDelay / portTICK_RATE_MS);
-
     }
-
 }
 
 
@@ -145,7 +145,7 @@ initPWM (void)
                     PWM_GEN_MODE_UP_DOWN | PWM_GEN_MODE_NO_SYNC);
     // Set the initial PWM parameters
 
-    PWMGenPeriodSet(PWM_MAIN_BASE, PWM_MAIN_GEN, SysCtlClockGet() / PWM_FIXED_RATE_HZ);
+    PWMGenPeriodSet(PWM_MAIN_BASE, PWM_MAIN_GEN, SysCtlClockGet() / PWM_DIVIDER / PWM_FIXED_RATE_HZ);
 
     PWMGenEnable(PWM_MAIN_BASE, PWM_MAIN_GEN);
 
@@ -162,7 +162,7 @@ initPWM (void)
     PWMGenConfigure(PWM_SECONDARY_BASE, PWM_SECONDARY_GEN,
                     PWM_GEN_MODE_UP_DOWN | PWM_GEN_MODE_NO_SYNC);
     // Set the initial PWM parameters
-    PWMGenPeriodSet(PWM_SECONDARY_BASE, PWM_SECONDARY_GEN, SysCtlClockGet() / PWM_FIXED_RATE_HZ);
+    PWMGenPeriodSet(PWM_SECONDARY_BASE, PWM_SECONDARY_GEN, SysCtlClockGet() / PWM_DIVIDER / PWM_FIXED_RATE_HZ);
 
     PWMGenEnable(PWM_SECONDARY_BASE, PWM_SECONDARY_GEN);
 
@@ -179,7 +179,7 @@ setDutyCycle (uint32_t ui32Duty, uint8_t rotor)
 
     // Calculate the PWM period corresponding to the freq.
     uint32_t ui32Period =
-        SysCtlClockGet() / PWM_FIXED_RATE_HZ;
+        SysCtlClockGet() / PWM_DIVIDER / PWM_FIXED_RATE_HZ;
 
     if (rotor == MAIN_ROTOR){
         PWMPulseWidthSet(PWM_MAIN_BASE, PWM_MAIN_OUTNUM,

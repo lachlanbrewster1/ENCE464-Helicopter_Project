@@ -29,11 +29,13 @@
 
 
 // PWM configuration
-#define PWM_START_DUTY  0
-#define PWM_RATE_MIN_DUTY    0
-#define PWM_RATE_MAX_DUTY    100
+#define PWM_START_DUTY        0
+#define PWM_RATE_MIN_DUTY     0
+#define PWM_RATE_MAX_DUTY     100
 #define PWM_FIXED_RATE_HZ     200
 #define PWM_DIVIDER_CODE   SYSCTL_PWMDIV_4
+#define PWM_DIVIDER           4
+
 
 //  PWM Hardware Details
 #define PWM_MAIN_BASE        PWM0_BASE

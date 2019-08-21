@@ -32,7 +32,6 @@
 #include "semphr.h"
 
 static circBuf_t g_inBuffer;     // Buffer of size BUF_SIZE
-static uint16_t landed_ref;      // Landed reference of the helicopter
 
 
 
@@ -45,7 +44,7 @@ static uint16_t landed_ref;      // Landed reference of the helicopter
 
 // FreeRTOS structures.
 extern xSemaphoreHandle g_pUARTMutex;
-extern xQueueHandle g_buttsAdcEventQueue;
+extern xQueueHandle g_buttsADCEventQueue;
 xSemaphoreHandle g_adcConvSemaphore;
 xSemaphoreHandle g_calibrationCompleteSemaphore;
 
@@ -65,7 +64,7 @@ adcQueueTask(void *pvParameters)
     // Get the current tick count.
     ui16LastTime = xTaskGetTickCount();
 
-    uint32_t calibrationDone = 0;
+    volatile uint32_t calibrationDone = 0;
     uint32_t circBufcounter = 0;
 
 
@@ -113,7 +112,7 @@ adcQueueTask(void *pvParameters)
                 eventItem.adcBufferAverage = calculateMeanHeight();
 
                 // Append event message to the queue
-                if (xQueueSend (g_buttsAdcEventQueue, &eventItem, portMAX_DELAY) != pdPASS)
+                if (xQueueSend (g_buttsADCEventQueue, &eventItem, portMAX_DELAY) != pdPASS)
                 {
                     // Queue is full - not good. Should never happen
                     xSemaphoreTake (g_pUARTMutex, portMAX_DELAY);
@@ -131,7 +130,7 @@ adcQueueTask(void *pvParameters)
                     calibrationDone = 1;
 
                     xSemaphoreTake (g_pUARTMutex, portMAX_DELAY);
-                    UARTprintf("CALIBRATION DONE\n");
+                    UARTprintf("CALIBRATION DONE, SENT AVERAGE\n");
                     xSemaphoreGive (g_pUARTMutex);
 
                     // Signaling that calibration is complete, buffer is full and average has been computed
@@ -142,7 +141,7 @@ adcQueueTask(void *pvParameters)
                    eventItem.adcBufferAverage = calculateMeanHeight();
 
                    // Append event message to the queue
-                   if (xQueueSend (g_buttsAdcEventQueue, &eventItem, portMAX_DELAY) != pdPASS)
+                   if (xQueueSend (g_buttsADCEventQueue, &eventItem, portMAX_DELAY) != pdPASS)
                    {
                        // Queue is full - not good. Should never happen
                        xSemaphoreTake (g_pUARTMutex, portMAX_DELAY);
@@ -220,13 +219,12 @@ calculateMeanHeight(void)
     uint32_t sum = 0;
     uint16_t i = 0;
 
-    for ( i = 0; i < BUF_SIZE; i++)
+    for ( i = 0; i < BUF_SIZE; i++) {
             sum = sum + readCircBuf (&g_inBuffer);
-
+    }
     // Calculate the rounded mean of the buffer contents
     uint32_t mean = (2 * sum + BUF_SIZE) / 2 / BUF_SIZE;
 
-    // return (2 * (100 * (landed_ref - mean)) + 1000) / 2 / 1000; //100% *(our new height) / 1000mV
     return mean;
 }
 
