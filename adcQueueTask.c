@@ -48,6 +48,9 @@ extern xQueueHandle g_buttsADCEventQueue;
 xSemaphoreHandle g_adcConvSemaphore;
 xSemaphoreHandle g_calibrationCompleteSemaphore;
 
+// Globals
+extern uint32_t g_landedAltitudeADCValue;
+extern uint32_t g_fullAltitudeADCValue;
 
 //*****************************************************************************
 // This task handles calculating, then sending the current average ADC value
@@ -58,7 +61,7 @@ adcQueueTask(void *pvParameters)
 {
 
     portTickType ui16LastTime;
-    uint32_t ui32PollDelay = 20;
+    uint32_t ui32PollDelay = 2;
     hwEventQueueItem_t eventItem;
 
     // Get the current tick count.
@@ -78,34 +81,26 @@ adcQueueTask(void *pvParameters)
 
         if (xSemaphoreTake(g_adcConvSemaphore, portMAX_DELAY) == pdTRUE) {       // If flag is set
 
-            // If ADC value is ready
-            //if (ADCIntStatus(ADC0_BASE, 3, true)) {
-            if (true) {
+            // Value to be read
+            uint32_t ulValue;
 
-                // Value to be read
-                uint32_t ulValue;
+            //
+            // Get the single sample from ADC0 and write it to ulValue
+            ADCSequenceDataGet(ADC0_BASE, 3, &ulValue);
 
-                //
-                // Get the single sample from ADC0 and write it to ulValue
-                ADCSequenceDataGet(ADC0_BASE, 3, &ulValue);
+//                xSemaphoreTake(g_pUARTMutex, BLOCK_TIME_MAX);
+//                char string[31];
+//                usnprintf (string, sizeof(string), "ADC value: %d\r\n", ulValue);
+//                UARTprintf(string);
+//                xSemaphoreGive(g_pUARTMutex);
 
-                xSemaphoreTake(g_pUARTMutex, BLOCK_TIME_MAX);
-                char string[31];
-                usnprintf (string, sizeof(string), "ADC value: %d\r\n", ulValue);
-                UARTprintf(string);
-                xSemaphoreGive(g_pUARTMutex);
-
-                //
-                // Place it in the circular buffer (advancing write index)
-                writeCircBuf (&g_inBuffer, ulValue);
-
-
-                if (calibrationDone == 0) {circBufcounter++;}
-
-            }
+            //
+            // Place it in the circular buffer (advancing write index)
+            writeCircBuf (&g_inBuffer, ulValue);
 
 
             if (calibrationDone == 1) {
+                // Normal operation
 
                 // Create event message to send, calculate buffer average
                 eventItem.buttonADCEventType = ADC_BUFFER_UPDATED_EVENT;
@@ -124,44 +119,33 @@ adcQueueTask(void *pvParameters)
                     }
                 }
 
-            } else {  //TODO   DUPLICATED CODE! Create 'send average buffer' function
+            } else if (calibrationDone == 0) {
+
+                circBufcounter++;
 
                 if (circBufcounter >= BUF_SIZE) {
                     calibrationDone = 1;
 
-                    xSemaphoreTake (g_pUARTMutex, portMAX_DELAY);
-                    UARTprintf("CALIBRATION DONE, SENT AVERAGE\n");
-                    xSemaphoreGive (g_pUARTMutex);
-
+                    g_landedAltitudeADCValue = calculateMeanHeight();
+                    g_fullAltitudeADCValue = g_landedAltitudeADCValue - HELI_OFFSET_FULL;
                     // Signaling that calibration is complete, buffer is full and average has been computed
-                    xSemaphoreGive(g_calibrationCompleteSemaphore);
+                    if (xSemaphoreGive(g_calibrationCompleteSemaphore) != pdPASS) {
+                        xSemaphoreTake (g_pUARTMutex, portMAX_DELAY);
+                        UARTprintf("\nCouldn't give semaphore for calibration!\n");
+                        xSemaphoreGive (g_pUARTMutex);
+                    }
 
-                    // Create event message to send, calculate buffer average
-                   eventItem.buttonADCEventType = ADC_BUFFER_UPDATED_EVENT;
-                   eventItem.adcBufferAverage = calculateMeanHeight();
-
-                   // Append event message to the queue
-                   if (xQueueSend (g_buttsADCEventQueue, &eventItem, portMAX_DELAY) != pdPASS)
-                   {
-                       // Queue is full - not good. Should never happen
-                       xSemaphoreTake (g_pUARTMutex, portMAX_DELAY);
-                       UARTprintf("\nQueue full. This should never happen.\n");
-                       xSemaphoreGive (g_pUARTMutex);
-                       while(1)
-                       {
-                           // Infinite loop
-                       }
-                   }
+                    xSemaphoreTake (g_pUARTMutex, portMAX_DELAY);
+                    UARTprintf("CALIBRATION DONE, AVERAGE COMPUTED\n");
+                    xSemaphoreGive (g_pUARTMutex);
                 }
             }
-
 
         } else {
 
             xSemaphoreTake (g_pUARTMutex, portMAX_DELAY);
             UARTprintf("\nCouldn't take semaphore for Q task\n");
             xSemaphoreGive (g_pUARTMutex);
-
         }
 
         // Wait for the required amount of time.

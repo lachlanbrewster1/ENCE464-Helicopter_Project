@@ -134,6 +134,10 @@ pwmTaskInit(void)
 void
 initPWM (void)
 {
+
+    // Set the PWM clock rate (using the prescaler)
+    SysCtlPWMClockSet(PWM_DIVIDER_CODE);
+
     // Initialise main rotor
     SysCtlPeripheralEnable(PWM_MAIN_PERIPH_PWM);
     SysCtlPeripheralEnable(PWM_MAIN_PERIPH_GPIO);
@@ -143,30 +147,14 @@ initPWM (void)
 
     PWMGenConfigure(PWM_MAIN_BASE, PWM_MAIN_GEN,
                     PWM_GEN_MODE_UP_DOWN | PWM_GEN_MODE_NO_SYNC);
-    // Set the initial PWM parameters
 
-    PWMGenPeriodSet(PWM_MAIN_BASE, PWM_MAIN_GEN, SysCtlClockGet() / PWM_DIVIDER / PWM_FIXED_RATE_HZ);
+    // Set the initial PWM parameters
+    // PWMGenPeriodSet(PWM_MAIN_BASE, PWM_MAIN_GEN, SysCtlClockGet() / PWM_DIVIDER / PWM_FIXED_RATE_HZ);
 
     PWMGenEnable(PWM_MAIN_BASE, PWM_MAIN_GEN);
 
     PWMOutputState(PWM_MAIN_BASE, PWM_MAIN_OUTBIT, true);
 
-
-    // Initialise secondary rotor
-    SysCtlPeripheralEnable(PWM_SECONDARY_PERIPH_PWM);
-    SysCtlPeripheralEnable(PWM_SECONDARY_PERIPH_GPIO);
-
-    GPIOPinConfigure(PWM_SECONDARY_GPIO_CONFIG);
-    GPIOPinTypePWM(PWM_SECONDARY_GPIO_BASE, PWM_SECONDARY_GPIO_PIN);
-
-    PWMGenConfigure(PWM_SECONDARY_BASE, PWM_SECONDARY_GEN,
-                    PWM_GEN_MODE_UP_DOWN | PWM_GEN_MODE_NO_SYNC);
-    // Set the initial PWM parameters
-    PWMGenPeriodSet(PWM_SECONDARY_BASE, PWM_SECONDARY_GEN, SysCtlClockGet() / PWM_DIVIDER / PWM_FIXED_RATE_HZ);
-
-    PWMGenEnable(PWM_SECONDARY_BASE, PWM_SECONDARY_GEN);
-
-    PWMOutputState(PWM_SECONDARY_BASE, PWM_SECONDARY_OUTBIT, true);
 }
 
 
@@ -179,21 +167,10 @@ setDutyCycle (uint32_t ui32Duty, uint8_t rotor)
 
     // Calculate the PWM period corresponding to the freq.
     uint32_t ui32Period =
-        SysCtlClockGet() / PWM_DIVIDER / PWM_FIXED_RATE_HZ;
+    SysCtlClockGet() / PWM_DIVIDER / PWM_FIXED_RATE_HZ;
 
-    if (rotor == MAIN_ROTOR){
-        PWMPulseWidthSet(PWM_MAIN_BASE, PWM_MAIN_OUTNUM,
-        ui32Period * ui32Duty / 100);
+    PWMGenPeriodSet(PWM_MAIN_BASE, PWM_MAIN_GEN, ui32Period);
 
-        xSemaphoreTake(g_pUARTMutex, BLOCK_TIME_MAX);
-        char string[31];
-        usnprintf (string, sizeof(string), "Set rotor duty cycle to: %d\r\n", ui32Duty);
-        UARTprintf(string);
-        xSemaphoreGive(g_pUARTMutex);
-
-    }
-    else if (rotor == SECONDARY_ROTOR){
-        PWMPulseWidthSet(PWM_SECONDARY_BASE, PWM_SECONDARY_OUTNUM,
-            ui32Period * ui32Duty / 100);
-    }
+    PWMPulseWidthSet(PWM_MAIN_BASE, PWM_MAIN_OUTNUM,
+    ui32Period * ui32Duty / 100);
 }

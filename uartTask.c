@@ -18,8 +18,7 @@
 #include "circBufT.h"
 #include "uartTask.h"
 
-// #include HELI INFO // TODO
-
+#include "sharedConstants.h"
 
 #include "stdio.h"
 #include "stdlib.h"
@@ -41,14 +40,13 @@
 //*****************************************************************************
 #define UARTTASKSTACKSIZE        128         // Stack size in words
 
-// TEMPORARY // TODO
-//#define PRIORITY_UART_TASK       3
-//#define BLOCK_TIME_MAX          1
-
-
+extern OperatingData_t g_programStatus;
 
 // FreeRTOS structures.
 extern xSemaphoreHandle g_pUARTMutex;
+
+// Globals
+extern uint32_t g_landedAltitudeADCValue;
 
 
 //*****************************************************************************
@@ -59,7 +57,7 @@ uartTask(void *pvParameters)
 {
 
     portTickType ui16LastTime;
-    uint32_t ui32PollDelay = 25;
+    uint32_t ui32PollDelay = 1000;
 
     // Get the current tick count.
     ui16LastTime = xTaskGetTickCount ();
@@ -68,13 +66,53 @@ uartTask(void *pvParameters)
     UARTprintf("UART task starting.\n");
     xSemaphoreGive(g_pUARTMutex);
 
+    //                xSemaphoreTake(g_pUARTMutex, BLOCK_TIME_MAX);
+    //                char string[31];
+    //                usnprintf (string, sizeof(string), "ADC value: %d\r\n", ulValue);
+    //                UARTprintf(string);
+    //                xSemaphoreGive(g_pUARTMutex);
 
     //
     // Loop forever
     while(1) {
 
+        int8_t percentAltitude = (100 * (g_landedAltitudeADCValue - g_programStatus.currentAltDig)) / HELI_OFFSET_FULL;
+        if (percentAltitude > 100) {
+            percentAltitude = 100;
+        } else if (percentAltitude < 0) {
+            percentAltitude = 0;
+        }
+
+        char heliMode[10];
+        switch (g_programStatus.mode) {
+          case idle:
+              usnprintf (heliMode, sizeof(heliMode), "idle");
+              break;
+          case calibrate:
+              usnprintf (heliMode, sizeof(heliMode), "calibrate");
+              break;
+          case landed:
+              usnprintf (heliMode, sizeof(heliMode), "landed");
+              break;
+          case flying:
+              usnprintf (heliMode, sizeof(heliMode), "flying");
+              break;
+          case landing:
+              usnprintf (heliMode, sizeof(heliMode), "landing");
+              break;
+        }
+
         xSemaphoreTake(g_pUARTMutex, BLOCK_TIME_MAX);
-        UARTprintf("HELI INFO.\r\n");
+        UARTprintf("Current altitude: %d %% \n", percentAltitude);
+        UARTprintf("Reference altitude: %d %% \n", g_programStatus.referenceAltPercent);
+
+        if (g_programStatus.mode == flying || g_programStatus.mode == landing) {
+            UARTprintf("PWM: %d %% \n", g_programStatus.mainMotorPWMDuty);
+        } else {
+            UARTprintf("PWM: INACTIVE %% \n");
+        }
+
+        UARTprintf("Mode: %s\n", heliMode);
         xSemaphoreGive(g_pUARTMutex);
 
         // Wait for the required amount of time.

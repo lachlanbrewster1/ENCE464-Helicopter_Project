@@ -55,12 +55,14 @@
 /* Queue handle and queue mutex handles which are to be initialized in this module. */
 xQueueHandle g_switchEventQueue;				// Accessed hardware event queue reader task
 uint32_t g_landedAltitudeADCValue = MIN_ALTITUDE_ADC;
-// xSemaphoreHandle g_initAltADCValueSemaphore;
+uint32_t g_fullAltitudeADCValue;
 
 
 /* Externally defined global variables, both FreeRTOS-specific and helicopter program specific */
 extern xSemaphoreHandle g_pUARTMutex;		// Accessed by most tasks
 extern OperatingData_t g_programStatus;			// Accessed by the queue reader, controller, PWM and UART tasks
+extern xSemaphoreHandle g_calibrationCompleteSemaphore;
+
 
 
 /* Debug strings used to print to serial in debug version of the executable */
@@ -243,38 +245,53 @@ ControllerTask (void *pvParameters)
     // Loop forever
     while (1)
     {
-		// Update the flight mode if the helicopter is landing
-		updateFlightModeIfLanding (&g_programStatus);
-		
-        // Read from the queue to see if there is a new switch event
-		if (xQueueReceive (g_switchEventQueue, &newQueueItem, 0) == pdPASS)
-		{
-			/* Only act if new queue item is a switch event (should 
-			only ever be a switch event here) */
-			if (isEventTypeSlider (newQueueItem))
-			{
-				// Update flight mode if necessary
-				updateFlightModeOnSwitchEvent (&g_programStatus, newQueueItem);
-				
-				// Optional debug statements
-				#if DEBUG
-				xSemaphoreTake (g_pUARTMutex, portMAX_DELAY);
-				if (newQueueItem == SLIDER_PUSH_DOWN_EVENT)
-				{
-					UARTprintf (downEventString);
-				}
-				else
-				{
-					UARTprintf (upEventString);
-				}
-				xSemaphoreGive (g_pUARTMutex);
-				#endif
-			}
-		}
-		
-		// Update the main motor controller
-		updateController (&g_programStatus, &g_altControlData);
-		
+        /* If the initial landed ADC value has been measured, the controller can begin
+        normal operation */
+        if (g_programStatus.mode == calibrate)
+        {
+            // If semaphore is available, update the flying mode to landed
+            if (xSemaphoreTake (g_calibrationCompleteSemaphore, portMAX_DELAY) == pdTRUE)
+            {
+                g_programStatus.mode = landed;
+                g_programStatus.referenceAltDig = g_landedAltitudeADCValue;
+            }
+        }
+        // Normal operation in the landed, flying and landing modes
+        else
+        {
+            // Update the flight mode if the helicopter is landing
+            updateFlightModeIfLanding (&g_programStatus);
+
+            // Read from the queue to see if there is a new switch event
+            if (xQueueReceive (g_switchEventQueue, &newQueueItem, 0) == pdPASS)
+            {
+                /* Only act if new queue item is a switch event (should
+                only ever be a switch event here) */
+                if (isEventTypeSlider (newQueueItem))
+                {
+                    // Update flight mode if necessary
+                    updateFlightModeOnSwitchEvent (&g_programStatus, newQueueItem);
+
+                    // Optional debug statements
+                    #if DEBUG
+                    xSemaphoreTake (g_pUARTMutex, portMAX_DELAY);
+                    if (newQueueItem == SLIDER_PUSH_DOWN_EVENT)
+                    {
+                        UARTprintf (downEventString);
+                    }
+                    else
+                    {
+                        UARTprintf (upEventString);
+                    }
+                    xSemaphoreGive (g_pUARTMutex);
+                    #endif
+                }
+            }
+
+            // Update the main motor controller
+            updateController (&g_programStatus, &g_altControlData);
+        }
+
 		// Wait for the required amount of time.
 		vTaskDelayUntil (&ui16LastTime, ui32PollDelay / portTICK_RATE_MS);
 	}

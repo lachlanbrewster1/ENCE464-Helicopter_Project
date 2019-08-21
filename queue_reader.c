@@ -40,6 +40,9 @@ extern xQueueHandle g_switchEventQueue;			// Accessed by the queue reader and co
 extern xSemaphoreHandle g_pUARTMutex;		// Accessed by most tasks
 extern OperatingData_t g_programStatus;			// Accessed by the queue reader, controller, PWM and UART tasks
 
+extern uint32_t g_fullAltitudeADCValue;
+extern uint32_t g_landedAltitudeADCValue;
+
 
 /* Debug strings used to print to serial in debug version of the executable */
 #ifdef DEBUG
@@ -121,7 +124,7 @@ updateProgramStatusRefAlt (OperatingData_t *programStatus, bool doIncrease)
 		newRefAltPct = ui8CapToGivenBoundType ((currRefAltPct + ALTITUDE_INCREMENT_PCT), 
 												MAX_ALTITUDE_PCT, true);
 		newRefAltDig = ui32CapToGivenBoundType ((currRefAltDig - ALTITUDE_INCREMENT_ADC),
-												MAX_ALTITUDE_ADC, false);
+		                                        g_fullAltitudeADCValue, false);
 	} 
 	else
 	{
@@ -130,7 +133,7 @@ updateProgramStatusRefAlt (OperatingData_t *programStatus, bool doIncrease)
 		newRefAltPct = ui8CapToGivenBoundType ((currRefAltPct - ALTITUDE_INCREMENT_PCT),
 												MIN_ALTITUDE_PCT, false);
 		newRefAltDig = ui32CapToGivenBoundType ((currRefAltDig + ALTITUDE_INCREMENT_ADC),
-												MIN_ALTITUDE_ADC, true);
+		                                        g_landedAltitudeADCValue, true);
 	}
 	// Update reference altitude members of structure
 	programStatus->referenceAltPercent = newRefAltPct;

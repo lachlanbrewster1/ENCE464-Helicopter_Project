@@ -41,8 +41,8 @@
 
 
 // Maximum and minimum bounds on the altitude and yaw and increment values
-#define MAX_ALTITUDE_ADC 1240
-#define MIN_ALTITUDE_ADC 2482
+#define MAX_ALTITUDE_ADC 1000
+#define MIN_ALTITUDE_ADC 2000
 #define MAX_ALTITUDE_PCT 100
 #define MIN_ALTITUDE_PCT 0
 #define ALTITUDE_INCREMENT_PCT 10

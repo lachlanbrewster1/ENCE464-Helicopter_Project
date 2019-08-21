@@ -50,7 +50,7 @@ adcTriggerTask(void *pvParameters)
 {
 
     portTickType ui16LastTime;
-    uint32_t ui32PollDelay = 20;
+    uint32_t ui32PollDelay = 3;
 
 
     // Get the current tick count.

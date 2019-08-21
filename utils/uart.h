@@ -40,6 +40,9 @@
 #define UART_USB_GPIO_PINS      UART_USB_GPIO_PIN_RX | UART_USB_GPIO_PIN_TX
 
 
+
+
+
 //********************************************************
 // initialise UART functions, using constants defined in uart.h
 //********************************************************
