@@ -1,12 +1,11 @@
 // *****************************************************************************
 //
 // initialisers.c
-// Currently just includes function definitions for initialising the SSI peripheral
-// to be used as SPI.
+// Has all the initialisers for the SSI, and peripheral resets.
 //
-// Authors:  J.R Crosland- UCECE
-// Created:  07/02/2018
-// Last modified:  31/05/2018
+// Authors:  J.R Crosland and Greg Bates - UCECE
+// Created: 05/04/2018
+// Last modified:   22/08/2019
 //
 // *****************************************************************************
 
@@ -69,42 +68,8 @@ initClock(void)
     // Set the clock rate to 20 MHz
     SysCtlClockSet(SYSCTL_SYSDIV_10 | SYSCTL_USE_PLL | SYSCTL_OSC_MAIN |
                    SYSCTL_XTAL_16MHZ);
-    //
-    // Set up the period for the SysTick timer.  The SysTick timer period is
-    // set as a function of the system clock.
-//    SysTickPeriodSet(SysCtlClockGet() / SYSTICK_SAMPLE_RATE_HZ);
-    //
-//    // Register the interrupt handler
-//    SysTickIntRegister(sysTickIntHandler);
-//    //
-//    // Enable interrupt and device
-//    SysTickIntEnable();
-//    SysTickEnable();
+
 }
-
-
-
-//void
-//initProgReset(void)
-//{
-//    // Enable GPIO Port A
-//    //SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA);
-//    // Wait until Port A is ready to avoid a bus fault
-//    while (!SysCtlPeripheralReady(SYSCTL_PERIPH_GPIOA))
-//    {
-//        // twiddle your thumbs
-//        continue;
-//    }
-//    // Registering program reset handler
-//    GPIOIntRegister(GPIO_PORTA_BASE, progResetIntHandler);
-//    GPIOPinTypeGPIOInput(GPIO_PORTA_BASE, GPIO_PIN_6);
-//    GPIOPadConfigSet(GPIO_PORTA_BASE, GPIO_PIN_6, GPIO_STRENGTH_2MA,
-//                    GPIO_PIN_TYPE_STD_WPU);
-//    // Low level triggered interrupt
-//    GPIOIntTypeSet(GPIO_PORTA_BASE, GPIO_PIN_6, GPIO_FALLING_EDGE);
-//    GPIOIntEnable(GPIO_PORTA_BASE, GPIO_PIN_6);
-//}
-
 
 
 
