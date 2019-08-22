@@ -11,7 +11,7 @@
 //
 //
 // Author: Jozef Crosland | jrc149 | 49782422
-// Last modified:  14/08/2019
+// Last modified:  23/08/2019
 //
 // *******************************************************
 
@@ -48,7 +48,7 @@ typedef struct hw_evt_queue_item_e
 
 
 /* Update the reference percentage altitude in the program status object.
-This function is also used by the controller task. */
+NOT STATIC - this function is also used by the controller task. */
 void
 updateProgramStatusRefAlt (OperatingData_t *programStatus, bool doIncrease);
 

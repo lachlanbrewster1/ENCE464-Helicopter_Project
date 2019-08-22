@@ -6,10 +6,10 @@
 // modules and need to be shared. The most important content is the 
 // OperatingData_t struct
 
-// Authors:  J.R Crosland, A.K Greer, J.S Chen - UCECE 
+// Authors:  J.R Crosland, Lachlan Brewster
 //           
 // Created:  07/04/2018
-// Last modified:  03/06/2018
+// Last modified:  23/08/2019
 //
 // ****************************************************************************
 
@@ -24,76 +24,54 @@
 // Constants
 //*****************************************************************************
 #define BUF_SIZE 30
-#define YAW_MARGIN 12
 #define MAX_ADC_VALUE 4095 
 // Below is for converting from the 1.0 volt range to its proportion in 0-4095
 #define HELI_OFFSET_FULL 1240
-#define NUM_DEGS_REVOLUTION 360
-#define STATE_CHANGES_SLOT 4
-#define NUM_SLOTS 112
-#define STATE_CHANGES_REVOLUTION (STATE_CHANGES_SLOT * NUM_SLOTS)
-#define STATE_CHANGES_DEGREE ((STATE_CHANGES_SLOT * NUM_SLOTS) / NUM_DEGS_REVOLUTION)
 #define NUM_CHARS_ORBIT_DISPLAY 16
 #define PWM_DUTY_MAX 90
 #define PWM_DUTY_MIN 5
-#define HELI_BAUD_RATE 9600
 
+// Defining upper and lower bounds on 32-bit float types used to avoid overflow
 #define MAX_32_FLOAT_VALUE 3.403E38
 #define MIN_32_FLOAT_VALUE -3.403E38
 
 
-// Maximum and minimum bounds on the altitude and yaw and increment values
-#define MAX_ALTITUDE_ADC 1000
-#define MIN_ALTITUDE_ADC 2000
+// Maximum and minimum bounds on the altitude and increment values
+#define MAX_ALTITUDE_ADC 1000   // mV
+#define MIN_ALTITUDE_ADC 2000   // mV
 #define MAX_ALTITUDE_PCT 100
 #define MIN_ALTITUDE_PCT 0
 #define ALTITUDE_INCREMENT_PCT 10
 #define ALTITUDE_INCREMENT_ADC 124
-#define YAW_INCREMENT_DEGREES 15
-// Calculated from the number of state changes * YAW INCREMENT DEGREES. 
-// Hard coded to avoid integer arithmetic.
-#define YAW_INCREMENT_STATE_CHANGES 19 
 
 /* Starting positions when the program is initialized */
 #define STARTING_REF_ALT_PCT (MIN_ALTITUDE_PCT)
 #define STARTING_REF_ALT_DIG (MIN_ALTITUDE_ADC)
 #define STARTING_ALT_INTG_ERROR 1600
 #define STARTING_MAIN_MOTOR_DUTY 0
-#define STARTING_POSITION 0
-
-// This is the truth table that takes the current and previous yaw level states
-// of channels A and B of the helicopter rig as inputs. It outputs an increment
-// for a clockwise state change or a decrement for a counterclockwise state
-// change. The state is the bit-packed byte representation of the logic levels
-// of channels A and B and follows a Gray code.
-static const int32_t yawLookupTable[4][4] = {
-                        {0, 1, -1, 0},
-                        {-1, 0, 0, 1},
-                        {1, 0, 0, -1},
-                        {0, -1, 1, 0}
-                        };
 
 
 //*****************************************************************************
 // Flight modes
 //*****************************************************************************
-typedef enum helimode_e {idle, calibrate, landed, flying, landing} HeliMode;
+typedef enum helimode_e {calibrate, landed, flying, landing} HeliMode;
+
 
 //*****************************************************************************
 // Display modes
 //*****************************************************************************
 typedef enum displaymodes_e {Altitude, ADCMean, OFF} displayModes;
 
+
 typedef struct operating_data_t_s {
     HeliMode mode;
-    uint32_t referenceAltDig; // Percentage altitude converted to digital
-    uint32_t currentAltDig; // ADC voltage representation between 0 - 4095
-    uint8_t referenceAltPercent; // Percentage value between 0 and 100
+    uint32_t referenceAltDig;       // Percentage altitude converted to digital
+    uint32_t currentAltDig;         // ADC voltage representation between 0 - 4095
+    uint8_t referenceAltPercent;    // Percentage value between 0 and 100
     uint8_t mainMotorPWMDuty;
-    int32_t pPartAlt;
-    int32_t iPartAlt;
+    int32_t pPartAlt;               // Proportional error component
+    int32_t iPartAlt;               // Integral error component
 } OperatingData_t;
 
-/* Name of buttons, switch and ADC event write queue: g_butsADCEventQueue */
 
 #endif /* SHAREDCONSTANTS_H_ */

@@ -8,8 +8,8 @@
 // daughterboard. Also has the buttons and switch FreeRTOS task.
 // The buttons are:  UP and DOWN (on the Orbit daughterboard)
 //
-// Jozef Richard Crosland
-// Last modified:  05.08.2019
+// Jozef Crosland
+// Last modified:  23/08/2019
 // 
 // *******************************************************
 
@@ -19,16 +19,9 @@
 //*****************************************************************************
 // Constants
 //*****************************************************************************
-enum butNames {UP_BUTTON = 0, DOWN_BUTTON};
 
-typedef enum but_evt_e
-{
-    NO_EVENT = 0,
-    UP_BUTTON_PUSHED,
-    DOWN_BUTTON_PUSHED,
-    UP_AND_DOWN_BUTTON_PUSHED
-} butEvents_t;
 
+// Used to identify button events
 typedef enum but_states_e 
 {
     RELEASED = 0, 
@@ -37,6 +30,8 @@ typedef enum but_states_e
     IS_SWITCH
 } butStates_t;
 
+
+// Used to identify the switch events
 typedef enum switch_states_e {
     LOGIC_LOW_STATE = 0,
     LOGIC_HIGH_STATE,
@@ -44,18 +39,21 @@ typedef enum switch_states_e {
     PUSHED_DOWN
 } switchStates_t;
 
+
+// Used in the button debouncing
 typedef enum active_high_type_e {
     NA_IS_SWITCH = -1,
     IS_ACTIVE_LOW = false,
     IS_ACTIVE_HIGH = true
 } activeHighType_t;
 
-enum sliderStates {BOT = 0, TOP};
+
 #define NUM_SWITCHES (1)
 #define NUM_BUTS (2)
 #define NUM_SWITCHES_AND_BUTTONS (NUM_SWITCHES + NUM_BUTS)
 
-/* Button structure (as close as I can get to an object)
+
+/* Button structure (as close as I can get to an object with going C++)
 Used to initialise and configure the GPIO pins on the Tiva board
 and to store the current levels of the button
  */
@@ -107,15 +105,13 @@ typedef struct button_switch_s_t
 
 #define NUM_BUT_POLLS 5
 
-#define RED_LED   GPIO_PIN_1
-#define BLUE_LED  GPIO_PIN_2
-#define GREEN_LED GPIO_PIN_3
 
 /*
 Given a button switch type object, the necessary peripheral, port and pin is initialised and enabled. 
 */
 void
 initButtonSwitchObj (buttonSwitch_t *but_sw_obj);
+
 
 /* 
 Initialises all of the globally defined buttons and switches for this module 
@@ -130,11 +126,13 @@ initAllButtonSwitchObjs (void);
 butStates_t
 getButtonEventState (const buttonSwitch_t *but_obj);
 
+
 /* Returns true if the current button event state is PUSHED, false otherwise.
  * Checks the button flags for a button event and resets it.
  */
 bool
 isButtonEventStatePushed (buttonSwitch_t *but_obj);
+
 
 /*
 Determines whether a button event is a pushed one or a released event.
@@ -143,16 +141,20 @@ This is only called if the polls pass the debounce threshold
 butStates_t
 updateButtonEventState (const buttonSwitch_t *but_obj);
 
+
 /* Reads in the logic level of the button object passed in regardless of whether it's button or switch instance.
 If it's a switch instance, only the logic level of the pin is read and updated. Otherwise, debouncing is performed on the button instance and the button event is updated if in fact it has been pressed for long enough or if it has been released */
 void 
 updateButtonSwitchObj (buttonSwitch_t *but_sw_obj);
+
 
 /* Updates all of the switches and buttons as defined in this module */
 void
 updateAllButtonSwitchObjs (void);
 
 
-extern uint32_t ButtonsSwitchTaskInit (void); 
+extern uint32_t 
+ButtonsSwitchTaskInit (void); 
+
 
 #endif /*BUTTONS_SWITCH_TASK_H_*/

@@ -1,6 +1,6 @@
 //*****************************************************************************
 //
-// freertos_demo.c - Simple FreeRTOS example.
+// main.c - Simple FreeRTOS example.
 //
 // Copyright (c) 2012-2017 Texas Instruments Incorporated.  All rights reserved.
 // Software License Agreement
@@ -100,13 +100,11 @@
 // and queue for adc and button events
 //*****************************************************************************
 
-
-xSemaphoreHandle g_queueMutex;        // Mutex to guard the event queue from being modified
-
-xSemaphoreHandle g_pUARTMutex;      // Mutex to guard the UART.
+xSemaphoreHandle g_pUARTMutex;          // Mutex to guard the UART.
 xSemaphoreHandle g_adcConvSemaphore;    // Flag to signal the ADC value is ready to be written to buffer
 
-OperatingData_t g_programStatus;    //Structure containing operating data for the heli rig
+OperatingData_t g_programStatus;        // Structure containing operating data for the heli rig
+
 //*****************************************************************************
 //
 // The error routine that is called if the driver library encounters an error.
@@ -174,6 +172,7 @@ ConfigureUART(void)
     UARTStdioConfig(0, 115200, 16000000);
 }
 
+
 /* Initialises the program status structure object */
 void
 initialiseProgramStatus (OperatingData_t* statusObject)
@@ -186,6 +185,8 @@ initialiseProgramStatus (OperatingData_t* statusObject)
     statusObject->pPartAlt = 0;
     statusObject->iPartAlt = STARTING_ALT_INTG_ERROR;
 }
+
+
 //*****************************************************************************
 //
 // Initialize FreeRTOS and start the initial set of tasks.
@@ -224,17 +225,6 @@ main(void)
         {
         }
     }
-
-    //
-    // Create the LED task.
-    //
-    // if(LEDTaskInit() != 0)
-    // {
-
-    //     while(1)
-    //     {
-    //     }
-    // }
 
     //
     // Create the switch task.
@@ -293,7 +283,6 @@ main(void)
         {
         }
     }
-
 
     // Initialise the program status
     initialiseProgramStatus (&g_programStatus);

@@ -3,13 +3,12 @@
 
 // *******************************************************
 //
-// controller_task.c
+// controller_task.h
 //
-// Procedures that implement PID control for the helicopter
-// program
+// Control data structure definitions
 //
 // Author: Jozef Crosland | jrc149 | 49782422
-// Last modified:  14/08/2019
+// Last modified:  23/08/2019
 //
 // *******************************************************
 
@@ -22,14 +21,15 @@
 
 
 typedef struct control_data_t_s {
-	float pastError;
-	float intError;
-	float dt;               // TO BE DECIDED
-	float kp;
-	float kd;
-	float ki;
+	float pastError; 	// Past error used for the integral error component
+	float intError;		// Current integral error
+	float dt;			// Time step             	
+	float kp;			// Proportional gain
+	float kd;			// Derivative gain
+	float ki;			// Integral gain
 } ControlData_t;
 
-extern uint32_t ControllerTaskInit (void); 
+extern uint32_t 
+ControllerTaskInit (void); 
 
 #endif /* CONTROLLER_TASK_H_ */

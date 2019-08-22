@@ -10,38 +10,39 @@
 // 
 // *******************************************************
 
+// Include stdint and stdbool before everything else
 #include <stdint.h>
 #include <stdbool.h>
+
+// Custom application specific include
 #include "controller_task.h"
 #include "queue_reader.h"
+#include "sharedConstants.h"
+
+// FreeRTOS-related includes
 #include "priorities.h"
 #include "FreeRTOS.h"
 #include "task.h"
 #include "queue.h"
 #include "semphr.h"
 #include "utils/uartstdio.h"
-#include "sharedConstants.h"
 
 
-/* FreeRTOS task specific defines */
+
+// FreeRTOS task specific defines
 #define CONTROLLER_TASK_STACK_SIZE		128
 #define CONTROLLER_TASK_POLL_DELAY		3.333
 #define SWITCH_EVENT_ITEM_SIZE			sizeof (hwEvent_t)
 #define SWITCH_EVENT_QUEUE_SIZE			10
 
 
-/* Controller application specific defines */
-#define TO_LOW					2
-#define TO_HIGH					98
-
-#define FROM_LOW_ALT			0
-#define FROM_HIGH_ALT			1240000
-
-#define FROM_LOW_YAW			0
-#define FROM_HIGH_YAW			448000
-
-#define PWM_SATURATION			    95
-#define CONT_TIME_STEP			    0.01
+// Controller application specific defines
+#define TO_LOW						2 		// Minimum duty cycle
+#define TO_HIGH						98		
+#define FROM_LOW_ALT				0 		// Minimum error component
+#define FROM_HIGH_ALT				1240000
+#define PWM_SATURATION			    95		// Maximum duty cycle
+#define CONT_TIME_STEP			    0.01	// Inverse of controller polling frequency
 #define INIT_ALT_INTG_ERROR		    1600
 #define ZERO_INIT_INTG_ERROR	    0
 #define NUM_GAINS_PID			    3
@@ -52,20 +53,20 @@
 #define NEAR_LANDED_NOISE_MARGIN    (NOISE_MARGIN / 2)
 
 
-/* Queue handle and queue mutex handles which are to be initialized in this module. */
-xQueueHandle g_switchEventQueue;				// Accessed hardware event queue reader task
+// Queue handle and queue mutex handles which are to be initialized in this module.
+xQueueHandle g_switchEventQueue;				// Accessed by queue reader task
 uint32_t g_landedAltitudeADCValue = MIN_ALTITUDE_ADC;
 uint32_t g_fullAltitudeADCValue;
 
 
-/* Externally defined global variables, both FreeRTOS-specific and helicopter program specific */
-extern xSemaphoreHandle g_pUARTMutex;		// Accessed by most tasks
-extern OperatingData_t g_programStatus;			// Accessed by the queue reader, controller, PWM and UART tasks
-extern xSemaphoreHandle g_calibrationCompleteSemaphore;
+// Externally defined global variables, both FreeRTOS-specific and helicopter program specific
+extern xSemaphoreHandle g_pUARTMutex;					// Accessed by most tasks
+extern OperatingData_t g_programStatus;					// Accessed by the queue reader, controller, PWM and UART tasks
+extern xSemaphoreHandle g_calibrationCompleteSemaphore; // Accessed by the controller and ADC queue tasks
 
 
 
-/* Debug strings used to print to serial in debug version of the executable */
+// Debug strings used to print to serial in debug version of the executable
 #ifdef DEBUG
 static const char* downEventString = "SLIDER_PUSH_DOWN_EVENT\n";
 static const char* upEventString = "SLIDER_PUSH_UP_EVENT\n";
@@ -95,7 +96,8 @@ mapToMainDuty (uint32_t controllerOutput)
 }
 
 
-/* Main procedure for calculating the main motor control PWM input.
+/* 
+Main procedure for calculating the main motor control PWM input.
 Does all the grunty PID maths */
 static uint8_t
 controllerAlt (int32_t error, uint8_t currentPWM, ControlData_t* data, OperatingData_t* programInfo)
@@ -114,6 +116,11 @@ controllerAlt (int32_t error, uint8_t currentPWM, ControlData_t* data, Operating
 	{
         calcIntError = ((data->pastError + invertedError) / 2) * data->dt; //Trapezium method.
 
+		/* Prevent the integral error from overflowing if it approaches the maximum
+		value stored in a 32-bit float. This should never occur as the 32-bit float size 
+		is huge. */
+		/* If the error is positive, only add on the previously calculated integral error
+		if it will not cause an overflow */
 	    if (data->intError > 0)
 	    {
 	        if (data->intError + calcIntError > MAX_32_FLOAT_VALUE)
@@ -125,6 +132,8 @@ controllerAlt (int32_t error, uint8_t currentPWM, ControlData_t* data, Operating
                 data->intError += calcIntError;
             }
 	    }
+		/* If the error is negative or zero, only add on the previously calculated integral error
+		if it will not cause an overflow */
 	    else
 	    {
 	        if (data->intError + calcIntError < MIN_32_FLOAT_VALUE)
@@ -157,7 +166,7 @@ controllerAlt (int32_t error, uint8_t currentPWM, ControlData_t* data, Operating
 	}
 	returnValue = mapToMainDuty(preconv);
 
-	//If the return value is greater than 98% duty cycle, cap it at 98%
+	// If the return value is greater than 98% duty cycle, cap it at 98%
 	if (returnValue > PWM_DUTY_MAX)
 	{
 		returnValue = PWM_DUTY_MAX;
@@ -188,7 +197,8 @@ isEventTypeSlider (hwEvent_t eventType)
 }
 
 
-/* Returns true if the helicopter is close enough to the current reference
+/* 
+Returns true if the helicopter is close enough to the current reference
 altitude. Used to determine when it's appropriate to further reduce the
 reference altitude. Ultimately ensures a smooth landing sequence. */
 static bool
@@ -196,14 +206,17 @@ isWithinRefMargins (OperatingData_t* programInfo, uint8_t altMarg)
 {
 	uint32_t tempCurrAlt = programInfo->currentAltDig;
 	uint32_t tempRefAltDig = programInfo->referenceAltDig;
+	/* Is the current altitude withing a given margin around the current
+	reference value? */
 	bool altCheckLanded = (tempCurrAlt >= tempRefAltDig - altMarg) 
 							&& (tempCurrAlt <= tempRefAltDig + altMarg);
 
-	return ((altCheckLanded == true) ? true : false);
+	return altCheckLanded;
 }
 
 
-/* Returns true when the helicopter is close enough to the recorded ADC
+/* 
+Returns true when the helicopter is close enough to the recorded ADC
 value corresponding to the initial landed position */
 static bool
 isWithinLandedCriteria (OperatingData_t* programInfo, uint32_t landedAltADCValue)
@@ -255,7 +268,8 @@ updateFlightModeIfLanding (OperatingData_t* programInfo)
 }
 
 
-/* The controller task. 
+/* 
+The controller task. 
 Continuously updates the main motor PWM value and monitors and updates the
 flight mode as a function of the slider switch events */
 static void
@@ -324,7 +338,8 @@ ControllerTask (void *pvParameters)
 }
 
 
-/* Initializes the controller task and the switch event queue. 
+/* 
+Initializes the controller task and the switch event queue. 
 No hardware initialization takes places as this task has no interaction with hardware.
  */
 uint32_t 
@@ -334,13 +349,7 @@ ControllerTaskInit (void)
 	/* Initialize the switch event queue that is only written to by the hardware event
 	reader queue */
 	g_switchEventQueue = xQueueCreate (SWITCH_EVENT_QUEUE_SIZE, SWITCH_EVENT_ITEM_SIZE);
-	
-	/* Initialize the initial altitude value semaphore.
-	This binary semaphore is taken by the ADC task during program
-	initialisation and is never given back - since the initial
-	altitude ADC value is only measured once and only once. */
-	// g_initAltADCValueSemaphore = xSemaphoreCreateBinary ();
-	
+		
     // Create the buttons switches task
     if (xTaskCreate (ControllerTask, 
 					(const portCHAR *)"Controller task", 

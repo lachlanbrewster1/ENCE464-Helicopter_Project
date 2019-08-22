@@ -2,27 +2,23 @@
 // 
 // buttons_switch_task.c
 //
-// Support for a set of FOUR specific buttons on the Tiva/Orbit.
-// The buttons are:  UP and DOWN (on the Orbit daughterboard) plus
-// LEFT and RIGHT on the Tiva.
+// Support for a set of two specific buttons on the Tiva/Orbit.
+// The buttons are:  UP and DOWN (on the Orbit daughterboard) 
 //
-// Note that pin PF0 (the pin for the RIGHT pushbutton - SW2 on
-//  the Tiva board) needs special treatment - See PhilsNotesOnTiva.rtf.
-//
-// Jozef Crosland
-// Last modified:  03/08/2019
+// Author: Jozef Crosland
+// Last modified:  23/08/2019
 // 
 // *******************************************************
 
-/* Put stdint and stdbool includes before everything else */
+// Put stdint and stdbool includes before everything else
 #include <stdint.h>
 #include <stdbool.h>
 
-/* Custom application includes */
+// Custom application includes
 #include "buttons_switch_task.h"
 #include "queue_reader.h"
 
-/* Tivaware hardware pertinent includes */
+// Tivaware hardware pertinent includes
 #include "inc/hw_memmap.h"
 #include "inc/hw_types.h"
 #include "inc/hw_gpio.h"
@@ -31,7 +27,7 @@
 #include "driverlib/debug.h"
 #include "inc/tm4c123gh6pm.h"
 
-/* FreeRTOS includes */
+// FreeRTOS includes
 #include "priorities.h"
 #include "FreeRTOS.h"
 #include "task.h"
@@ -39,7 +35,7 @@
 #include "semphr.h"
 #include "utils/uartstdio.h"
 
-/* FreeRTOS task specific defines */
+// FreeRTOS task specific defines
 #define BUTTONSSWITCHTASKSTACKSIZE      128
 #define BUTTONSSWITCHTASKPOLLDELAY      10
 extern xQueueHandle g_buttsADCEventQueue;
@@ -47,8 +43,7 @@ extern xQueueHandle g_pLEDQueue;
 extern xSemaphoreHandle g_pUARTMutex;
 
 /* Global, module-specific, non-FreeRTOS defines */
-
-/* Tiva board up button object instance */
+// Tiva board up button object instance
 static buttonSwitch_t g_up_button = 
 {
     .tiva_peripheral_base = UP_BUT_PERIPH,
@@ -63,7 +58,7 @@ static buttonSwitch_t g_up_button =
     .but_evt_flag = false,
     .but_deb_count = 0,
     .but_evt_state = NO_CHANGE
-    /* Can ignore the switch event field as this is a button instance */
+    // Can ignore the switch event field as this is a button instance
 };
 
 /* Tiva board down button object instance */
@@ -81,7 +76,7 @@ static buttonSwitch_t g_down_button =
     .but_evt_flag = false,
     .but_deb_count = 0,
     .but_evt_state = NO_CHANGE
-    /* Can ignore the switch event field as this is a button instance */
+    // Can ignore the switch event field as this is a button instance
 };
 
 /* Orbit OLED daughter board slider switch object instance */
@@ -99,7 +94,7 @@ static buttonSwitch_t g_slider_switch_one =
     .but_deb_count = 0,
     .current_sw_state = false,
     .previous_sw_state = false
-    /* Can ignore the button event field as this is a switch instance */
+    // Can ignore the button event field as this is a switch instance
 };
 
 /*
@@ -131,7 +126,7 @@ Initialises all of the globally defined buttons and switches for this module
 void
 initAllButtonSwitchObjs (void)
 {
-    // Manually call initialiser, but can we do this iteratively eventually?
+    // Initialise the up and down buttons and the slider switch
     initButtonSwitchObj (&g_up_button);
     initButtonSwitchObj (&g_down_button);
     initButtonSwitchObj (&g_slider_switch_one);
@@ -147,7 +142,8 @@ getButtonEventState (const buttonSwitch_t *but_obj)
 }
 
 
-/* Returns the current switch event status of the switch object
+/* 
+Returns the current switch event status of the switch object
  */
 switchStates_t
 getSwitchEventState (const buttonSwitch_t *sw_obj)
@@ -156,7 +152,8 @@ getSwitchEventState (const buttonSwitch_t *sw_obj)
 }
 
 
-/* Returns true if the current button event state is PUSHED, false otherwise.
+/* 
+Returns true if the current button event state is PUSHED, false otherwise.
  * Checks the button flags for a button event and resets it.
  */
 bool
@@ -201,7 +198,8 @@ updateButtonEventState (const buttonSwitch_t *but_obj)
 
 /*
 Determines which switch transition event has occurred
-as defined in the switchStates_t enum.
+as defined in the switchStates_t enum. This is only 
+called if the polls pass the debounce threshold
  */
 switchStates_t
 updateSwitchEventState (const buttonSwitch_t *sw_obj)
@@ -219,7 +217,8 @@ updateSwitchEventState (const buttonSwitch_t *sw_obj)
 }
 
 
-/* Debouncing procedure specifically for a button instance. This
+/* 
+Debouncing procedure specifically for a button instance. This
  * updates the button event field of the structure if a button push or
  * release event occurs
 */
@@ -231,14 +230,15 @@ updateButtonObj (buttonSwitch_t *but_obj)
     {
         // Increment debounce count
         but_obj->but_deb_count++;
-        /* If the count exceeds threshold, update the current button state and reset the debounce count. Also update whether it's push or release event */
+        /* If the count exceeds threshold, update the current button state 
+        and reset the debounce count. Also update whether it's push or release event */
         if (but_obj->but_deb_count >= NUM_BUT_POLLS)
         {
             but_obj->current_button_state = but_obj->current_logic_level;
             but_obj->but_deb_count = 0;
             // Set whether it's a released or pushed button event
             but_obj->but_evt_state = updateButtonEventState (but_obj);
-            // Set flag. This is reset in the task
+            // Set flag. This is reset in the buttons polling task
             but_obj->but_evt_flag = true;
         }
     }
@@ -250,10 +250,10 @@ updateButtonObj (buttonSwitch_t *but_obj)
     }
 }
 
-/* Debouncing procedure specifically for a switch instance. This
+/* 
+Debouncing procedure specifically for a switch instance. This
  * updates the button event field of the structure if a switch change instance
  * occurs.
- * This might have dodgy logic that needs to be thoroughly checked
 */
 void
 updateSwitchObj (buttonSwitch_t *sw_obj)
@@ -291,15 +291,18 @@ updateSwitchObj (buttonSwitch_t *sw_obj)
     }
 }
 
-/* Reads in the logic level of the button object passed in regardless of whether it's button or switch instance.
-If it's a switch instance, only the logic level of the pin is read and updated.
-Otherwise, debouncing is performed on the button instance and the button event is updated if in fact it has been pressed for long enough or if it has been released.
-If the parameter instance is a switch, then a slightly different debouncing function is called specifically designed for the switch
+/* 
+Reads in the logic level of the button object passed in regardless of whether it's 
+button or switch instance. If it's a switch instance, only the logic level of the pin is 
+read and updated. Otherwise, debouncing is performed on the button instance and the 
+button event is updated if in fact it has been pressed for long enough or if it has been released.
+If the parameter instance is a switch, then a slightly different debouncing 
+function is called specifically designed for the switch
 */
 void
 updateButtonSwitchObj (buttonSwitch_t *but_sw_obj)
 {
-    /* Check the logic level regardless of whether it's a button or switch instance */ 
+    // Check the logic level regardless of whether it's a button or switch instance
     but_sw_obj->current_logic_level = GPIOPinRead (but_sw_obj->tiva_gpio_port, 
                                                     but_sw_obj->tiva_gpio_pin);
     // Button instance debouncing
@@ -324,7 +327,9 @@ updateAllButtonSwitchObjs (void)
     updateButtonSwitchObj (&g_slider_switch_one);
 }
 
-/* The buttons and switches task. This polls and debounces whatever buttons are configured, and sends a message on the queue indicating which button has been pressed. Also prints to UART */
+/* 
+The buttons and switches task. This polls and debounces whatever buttons are configured, 
+and sends a message on the queue indicating which button has been pressed. Also prints to UART */
 static void
 ButtonsSwitchTask (void *pvParameters)
 {
@@ -341,7 +346,8 @@ ButtonsSwitchTask (void *pvParameters)
         // Poll all buttons and update their button event statuses
         updateAllButtonSwitchObjs();
 
-        // Get button event states from both the up and down button
+        /* Get button event states from both the up and down buttons
+        and get the slider event state from the slider switch */
         bool upButtonPushed = isButtonEventStatePushed (&g_up_button);
         bool downButtonPushed = isButtonEventStatePushed (&g_down_button);
         bool sliderSwitchPushedUp = (getSwitchEventState (&g_slider_switch_one)
@@ -349,7 +355,7 @@ ButtonsSwitchTask (void *pvParameters)
         bool sliderSwitchPushedDown = (getSwitchEventState (&g_slider_switch_one)
                                         == PUSHED_DOWN) ? true : false;
 
-        // Determine message to append to queue
+        // Determine which button event message to append to queue
         if ((upButtonPushed && downButtonPushed))
         {
             eventItem.buttonADCEventType = UP_AND_DOWN_BUTTON_PUSH_EVENT;
@@ -380,7 +386,9 @@ ButtonsSwitchTask (void *pvParameters)
             eventItem.buttonADCEventType = NO_HW_EVENT;
         }
 
-        // Switch events can happen at the same time as button events
+        /* Switch events can happen at the same time as button events.
+        Determine which switch event occured, if it did occur, and
+        append to the queue */
         if (sliderSwitchPushedUp)
         {
             eventItem.switchEventType = SLIDER_PUSH_UP_EVENT;
