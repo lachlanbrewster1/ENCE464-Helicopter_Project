@@ -34,10 +34,12 @@
 #define STATE_CHANGES_REVOLUTION (STATE_CHANGES_SLOT * NUM_SLOTS)
 #define STATE_CHANGES_DEGREE ((STATE_CHANGES_SLOT * NUM_SLOTS) / NUM_DEGS_REVOLUTION)
 #define NUM_CHARS_ORBIT_DISPLAY 16
-#define PWM_DUTY_MAX 98
+#define PWM_DUTY_MAX 90
 #define PWM_DUTY_MIN 5
 #define HELI_BAUD_RATE 9600
 
+#define MAX_32_FLOAT_VALUE 3.403E38
+#define MIN_32_FLOAT_VALUE -3.403E38
 
 
 // Maximum and minimum bounds on the altitude and yaw and increment values

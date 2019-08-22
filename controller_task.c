@@ -106,12 +106,37 @@ controllerAlt (int32_t error, uint8_t currentPWM, ControlData_t* data, Operating
 	int32_t preconv;
 	int32_t dPart;
 	uint16_t returnValue;
+	float calcIntError;
 
 	/* To prevent integrator windup, only add to integral error if the PWM is not at maximum.
 	Uses the trapezium method */
 	if (currentPWM <= PWM_SATURATION)
 	{
-		data->intError += ((data->pastError + invertedError) / 2) * data->dt; //Trapezium method.
+        calcIntError = ((data->pastError + invertedError) / 2) * data->dt; //Trapezium method.
+
+	    if (data->intError > 0)
+	    {
+	        if (data->intError + calcIntError > MAX_32_FLOAT_VALUE)
+	        {
+                data->intError = MAX_32_FLOAT_VALUE;
+            }
+	        else
+            {
+                data->intError += calcIntError;
+            }
+	    }
+	    else
+	    {
+	        if (data->intError + calcIntError < MIN_32_FLOAT_VALUE)
+            {
+                data->intError = MIN_32_FLOAT_VALUE;
+            }
+            else
+            {
+                data->intError += calcIntError;
+            }
+	    }
+
 	}
 
 	// Calculate the P, I, and D components
@@ -148,6 +173,7 @@ updateController (OperatingData_t* status, ControlData_t* altData)
 {
     // Compute error and pass into controller
     int32_t altError = status->referenceAltDig - status->currentAltDig;
+
     status->mainMotorPWMDuty = controllerAlt (altError, status->mainMotorPWMDuty, altData, status);
 }
 
