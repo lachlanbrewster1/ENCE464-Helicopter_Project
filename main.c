@@ -22,8 +22,11 @@
 //
 //*****************************************************************************
 
+// Include stdbool and stdint before everything else
 #include <stdbool.h>
 #include <stdint.h>
+
+// Tiva hardware-pertinent includes
 #include "inc/hw_memmap.h"
 #include "inc/hw_types.h"
 #include "driverlib/gpio.h"
@@ -32,7 +35,8 @@
 #include "driverlib/sysctl.h"
 #include "driverlib/uart.h"
 #include "utils/uartstdio.h"
-#include "led_task.h"
+
+// Custom application specific includes
 #include "buttons_switch_task.h"
 #include "queue_reader.h"
 #include "adcQueueTask.h"
@@ -41,6 +45,8 @@
 #include "pwmTask.h"
 #include "sharedConstants.h"
 #include "controller_task.h"
+
+// FreeRTOS related includes
 #include "FreeRTOS.h"
 #include "task.h"
 #include "queue.h"
