@@ -156,20 +156,3 @@ initADC (void)
     // Enable interrupts for ADC0 sequence 3 (clears any outstanding interrupts)
     ADCIntEnable(ADC0_BASE, 3);
 }
-
-
-
-////*****************************************************************************
-//// Set the landed reference of the helicopter.
-//// Uses the rounded mean of the circular buffer contents
-////*****************************************************************************
-//void
-//setLandedRef(void)
-//{
-//    uint16_t i;
-//    uint32_t sum = 0;
-//    for (i = 0; i < BUF_SIZE; i++)
-//            sum = sum + readCircBuf (&g_inBuffer);
-//        // Calculate the rounded mean of the buffer contents
-//    landed_ref = (2 * sum + BUF_SIZE) / 2 / BUF_SIZE;
-//}

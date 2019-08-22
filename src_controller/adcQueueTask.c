@@ -88,13 +88,6 @@ adcQueueTask(void *pvParameters)
             // Get the single sample from ADC0 and write it to ulValue
             ADCSequenceDataGet(ADC0_BASE, 3, &ulValue);
 
-//                xSemaphoreTake(g_pUARTMutex, BLOCK_TIME_MAX);
-//                char string[31];
-//                usnprintf (string, sizeof(string), "ADC value: %d\r\n", ulValue);
-//                UARTprintf(string);
-//                xSemaphoreGive(g_pUARTMutex);
-
-            //
             // Place it in the circular buffer (advancing write index)
             writeCircBuf (&g_inBuffer, ulValue);
 
