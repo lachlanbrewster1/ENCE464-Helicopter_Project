@@ -144,7 +144,6 @@ ConfigureUART(void)
     ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_UART0);
 
     // Configure GPIO Pins for UART mode.
-    //
     ROM_GPIOPinConfigure(GPIO_PA0_U0RX);
     ROM_GPIOPinConfigure(GPIO_PA1_U0TX);
     ROM_GPIOPinTypeUART(GPIO_PORTA_BASE, GPIO_PIN_0 | GPIO_PIN_1);
@@ -194,7 +193,6 @@ main(void)
     // Create the UART task.
     if(uartTaskInit() != 0)
     {
-
         while(1)
         {
         }
@@ -203,7 +201,6 @@ main(void)
     // Create the switch task.
     if(ButtonsSwitchTaskInit() != 0)
     {
-
         while(1)
         {
         }
@@ -229,7 +226,6 @@ main(void)
     // Create the ADC trigger task.
     if(adcTriggerTaskInit() != 0)
     {
-
         while(1)
         {
         }
@@ -238,7 +234,6 @@ main(void)
     // Create the ADC queue task.
     if(adcQueueTaskInit() != 0)
     {
-
         while(1)
         {
         }
@@ -247,7 +242,6 @@ main(void)
     // Create the PWM task.
     if(pwmTaskInit() != 0)
     {
-
         while(1)
         {
         }
