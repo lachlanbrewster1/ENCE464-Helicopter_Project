@@ -176,7 +176,6 @@ initDACSignals (void)
     {
     }
 
-    //GPIOPinConfigure(SYSCTL_PERIPH_GPIOB);
     GPIOPinTypeGPIOOutput(GPIO_PORTB_BASE, GPIO_PIN_1 | GPIO_PIN_6 | GPIO_PIN_3);
 }
 
