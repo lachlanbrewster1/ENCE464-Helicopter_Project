@@ -33,6 +33,7 @@
 #define TASK_RATE_SLIDER 10
 #define TASK_RATE_UART 2
 #define TASK_RATE_CHECK_CALIBRATION 300
+
 // Counter and delay values for the calibrate mode
 #define CALIBRATE_TICKS_MAX 35
 #define CALIBRATE_SYSCTL_DELAY 9
@@ -44,7 +45,6 @@
 #define TIMING_PERIOD_SLIDER (SYSTICK_SAMPLE_RATE_HZ / TASK_RATE_SLIDER)
 #define TIMING_PERIOD_UART (SYSTICK_SAMPLE_RATE_HZ / TASK_RATE_UART)
 #define TIMING_PERIOD_CHECK_CALIBRATION (SYSTICK_SAMPLE_RATE_HZ / TASK_RATE_CHECK_CALIBRATION)
-
 
 // Declaring the function pointer type
 typedef void (*functionPointer_t) (void);
@@ -60,8 +60,6 @@ static const uint16_t taskTimingPeriods[NUM_TASKS] = {
     TIMING_PERIOD_UART,
     TIMING_PERIOD_CHECK_CALIBRATION,
     };
-
-
 
 // Enables for the tasks 
 static const bool taskEnableStatus[NUM_TASKS] = {
@@ -90,7 +88,6 @@ typedef struct task_t_s {
 //*****************************************************************************
 void
 sysTickIntHandler (void);
-
 
 //*****************************************************************************
 // The handler for the program reset interrupt.

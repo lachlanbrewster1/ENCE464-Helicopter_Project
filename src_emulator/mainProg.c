@@ -9,6 +9,7 @@
 //
 //*****************************************************************************
 
+
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -31,45 +32,37 @@
 #include "../driverlib/timer.h"
 #include "../inc/hw_ints.h"
 
-
 //Input Edge Time Capture include and defines
 volatile int32_t g_duty = 0, g_start = 0, g_stop = 0;  //Start is the count on the leading edge. Stop is the count on the falling edge.
 volatile int32_t g_duty_prev = 0;                      //Previous duty cycle count.
-#define DUTY_SCALAR 800 //This is the scalar of Count to Duty calculation.
-#define VOLT_BITS 2000 //This is the rate of change of bits to voltage for the bit conversion for the DAC
+#define DUTY_SCALAR        800   //This is the scalar of Count to Duty calculation.
+#define VOLT_BITS          2000  //This is the rate of change of bits to voltage for the bit conversion for the DAC
 
 volatile int8_t g_state = 0;    //State variable to determine if rising edge or falling edge on the PWM
 
-#define PWM_Frequency 250 //Hz
-#define PWM_DIVIDER_CODE     SYSCTL_PWMDIV_4
+#define PWM_Frequency      250  //Hz
+#define PWM_DIVIDER_CODE   SYSCTL_PWMDIV_4
 #define SAMPLE_RATE_HZ     250
-#define SYSTICK_RATE_HZ    100    // SysTick interrupt config.
-
+#define SYSTICK_RATE_HZ    100  // SysTick interrupt config.
 
 //DAC related includes
-#define DAC_WRITE_CMD_NGA_NSHDN_2048 0x3800
-#define DAC_CMD_ARRAY_LENGTH 12  //This defines that we are using the 12 Bit DAC
+#define DAC_WRITE_CMD_NGA_NSHDN_2048   0x3800
+#define DAC_CMD_ARRAY_LENGTH           12  //This defines that we are using the 12 Bit DAC
+#define DAC_CMD_LENGTH_W_RDDT_BITS     16
 static const uint32_t dacWriteCmdValue = 0x00003800; // First four zeros are redundant
-#define DAC_CMD_LENGTH_W_RDDT_BITS 16
-
 
 //Helicopter model related includes and globals
 #define GRAVITY       10 //This is the acceleration due to gravity (M/s^2)
 #define WEIGHT        0.08 //Approximated mass of the system.
 #define DELTA_T       0.004 //This is 1/sampling frequency. Used for the helirig model.
 
-
 //Helirig variables. Each variable represents the next stage in the model.
 volatile double g_height = 0;     //Current height of the helicopter initialised to zero
-
 volatile int32_t g_MR_t = 0;      //Main Rotor
 volatile int32_t g_MR_t_prev = 0;
-
 volatile double g_force = 0;      //Force due to gravity
-
 volatile double g_G_t = 0;        //Thrust after the force of gravity has been subtracked.
 volatile double g_G_t_prev = 0;
-
 volatile double g_HM_t = 0;       //Helicopter Mount effect.
 volatile double g_HM_t_prev = 0;
 
@@ -82,19 +75,14 @@ int16_t g_bits;
 //LUT for the main force vs PWM.
 double LUT_PWM_DATA[17] = {0, 0.0268, 0.1609, 0.3142, 0.4748, 0.6190, 0.7626, 0.8796, 1.0104, 1.1098, 1.2155, 1.3227, 1.4339, 1.5124, 1.6039, 1.6824, 1.7707};
 
-
-
-
 //*****************************************************************************
 // Local prototypes
 //*****************************************************************************
-
 void helicopterHeight (void);
 void initTimer (void);
 void initDACSignals (void);
 void dutyCycle (void);
 void DACTransmitt (void);
-
 
 //*****************************************************************************
 // Code for the behaviour of the helicopter based on Phil Bones model
@@ -115,9 +103,11 @@ helicopterHeight (void)
     g_index = round(g_MR_t*17/900);
 
     //Safe case for when the counter ticks down therefore forcing the duty high above indexing range for one period. Very uncommon event.
-    if (g_index < 0) {
+    if (g_index < 0)
+    {
         g_index = 0;
-    } else if (g_index > 17) {
+    } else if (g_index > 17)
+    {
         g_index = 17;
     }
     g_force = LUT_PWM_DATA[g_index];
@@ -132,9 +122,11 @@ helicopterHeight (void)
     g_height += g_HM_t*DELTA_T;
 
     //Keep safes incase of the worst extremes
-    if(g_height < 0) {
+    if(g_height < 0)
+    {
         g_height = 0;
-    } else if (g_height > 100) {
+    } else if (g_height > 100)
+    {
         g_height = 100;
     }
 
@@ -145,8 +137,6 @@ helicopterHeight (void)
     g_HM_t_prev = g_HM_t;
 
 }
-
-
 
 //*****************************************************************************
 // Function to initalise all the required features to measure duty cycle of input PWM signal
@@ -165,15 +155,12 @@ initTimer(void)
     GPIOIntTypeSet (GPIO_PORTC_BASE, GPIO_INT_PIN_4, GPIO_BOTH_EDGES);
     GPIOIntEnable(GPIO_PORTC_BASE, GPIO_INT_PIN_4);
 
-
     //Initalise Timer
     SysCtlPeripheralEnable(SYSCTL_PERIPH_TIMER0);
     TimerConfigure(TIMER0_BASE, TIMER_CFG_A_PERIODIC_UP);
     TimerControlEvent(TIMER0_BASE, TIMER_A, TIMER_EVENT_BOTH_EDGES);
     TimerEnable(TIMER0_BASE, TIMER_A);
 }
-
-
 
 //*****************************************************************************
 // Function to initalise all the required controlsignals for the DAC.
@@ -187,14 +174,11 @@ initDACSignals (void)
 
     while(!SysCtlPeripheralReady(SYSCTL_PERIPH_GPIOB))
     {
-
     }
 
     //GPIOPinConfigure(SYSCTL_PERIPH_GPIOB);
     GPIOPinTypeGPIOOutput(GPIO_PORTB_BASE, GPIO_PIN_1 | GPIO_PIN_6 | GPIO_PIN_3);
 }
-
-
 
 //*****************************************************************************
 // Function calculate the duty cycle of the input PWM signal.
@@ -207,12 +191,16 @@ dutyCycle(void)
     g_state = GPIOPinRead(GPIO_PORTC_BASE, GPIO_PIN_4);
 
     //If the signal is a falling edge
-    if (g_state == 0) {
+    if (g_state == 0)
+    {
         //TimerValueGet takes the time when the PWM is a falling edge.
         g_stop = TimerValueGet(TIMER0_BASE, TIMER_A);
         //Only want to calculate on the falling edge or else duty will go from positive to negative.
         g_duty = (g_stop - g_start)/DUTY_SCALAR; //This Duty Scalar works because we know the frequency of the input signal (250Hz)
-    } else { //If the signal is leading edge
+    }
+    else
+    {
+        //If the signal is leading edge
         g_start = TimerValueGet(TIMER0_BASE, TIMER_A);
     }
 
@@ -240,8 +228,6 @@ DACTransmitt (void)
     //Send the Bits of data to the SDI
     SSIDataPut(SSI0_BASE, g_bits);
 }
-
-
 
 int
 main (void)

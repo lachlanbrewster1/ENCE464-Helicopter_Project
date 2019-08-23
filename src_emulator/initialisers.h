@@ -9,14 +9,11 @@
 #ifndef INITIALISERS_H_
 #define INITIALISERS_H_
 
+// *****************************************************************************
+// Initialisation functions for the clock (incl. SysTick), ADC, yaw, display
+// and UART
+// *****************************************************************************
 void initSSIGPIO (void);
-
-//*****************************************************************************
-// Initialises all GPIO ports (A-F), UART0 and ADC1.
-//*****************************************************************************
-//void
-//initEnableProgPeripherals(void);
-
 
 void 
 peripheralReset(void);
@@ -27,10 +24,5 @@ peripheralReset(void);
 void
 initClock (void);
 
-//*****************************************************************************
-// Initialises the Analog-to-Digital Conversion.
-//*****************************************************************************
-//void
-//initADC (void);
 
 #endif /* INITIALISERS_H_ */

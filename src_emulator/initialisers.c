@@ -62,6 +62,9 @@ peripheralReset(void)
     SysCtlPeripheralReset (SYSCTL_PERIPH_SSI0);
 }
 
+//*****************************************************************************
+// Initialisation functions for the clock (incl. SysTick), ADC, display.
+//*****************************************************************************
 void
 initClock(void)
 {
