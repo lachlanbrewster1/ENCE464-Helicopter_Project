@@ -43,7 +43,7 @@
 // FreeRTOS task specific defines
 #define ADCTASKSTACKSIZE        128         // Stack size in words
 extern xSemaphoreHandle g_pUARTMutex;
-xSemaphoreHandle g_adcConvSemaphore;
+xSemaphoreHandle g_adcConvSemaphore;        // Flag to signal the ADC value is ready to be written to buffer
 
 //*****************************************************************************
 // This task handles the constant triggering of the ADC conversion, which then triggers

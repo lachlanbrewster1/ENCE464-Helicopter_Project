@@ -92,23 +92,12 @@
 //
 //*****************************************************************************
 
-
-//*****************************************************************************
-//
-// The mutex that protects concurrent access of UART from multiple tasks.
-//
-//*****************************************************************************
-
-
 //*****************************************************************************
 // FreeRTOS structures used by program. Includes The mutex that protects
 // concurrent access of UART from multiple tasks, Queue for ADC and PWM task,
 // and queue for adc and button events
 //*****************************************************************************
-
 xSemaphoreHandle g_pUARTMutex;          // Mutex to guard the UART.
-xSemaphoreHandle g_adcConvSemaphore;    // Flag to signal the ADC value is ready to be written to buffer
-
 OperatingData_t g_programStatus;        // Structure containing operating data for the heli rig
 
 //*****************************************************************************
@@ -132,11 +121,9 @@ __error__(char *pcFilename, uint32_t ui32Line)
 void
 vApplicationStackOverflowHook(xTaskHandle *pxTask, char *pcTaskName)
 {
-    //
     // This function can not return, so loop forever.  Interrupts are disabled
     // on entry to this function, so no processor interrupts will interrupt
     // this loop.
-    //
     while(1)
     {
     }
@@ -150,34 +137,24 @@ vApplicationStackOverflowHook(xTaskHandle *pxTask, char *pcTaskName)
 void
 ConfigureUART(void)
 {
-    //
     // Enable the GPIO Peripheral used by the UART.
-    //
     ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOA);
 
-    //
     // Enable UART0
-    //
     ROM_SysCtlPeripheralEnable(SYSCTL_PERIPH_UART0);
 
-    //
     // Configure GPIO Pins for UART mode.
     //
     ROM_GPIOPinConfigure(GPIO_PA0_U0RX);
     ROM_GPIOPinConfigure(GPIO_PA1_U0TX);
     ROM_GPIOPinTypeUART(GPIO_PORTA_BASE, GPIO_PIN_0 | GPIO_PIN_1);
 
-    //
     // Use the internal 16MHz oscillator as the UART clock source.
-    //
     UARTClockSourceSet(UART0_BASE, UART_CLOCK_PIOSC);
 
-    //
     // Initialize the UART for console I/O.
-    //
     UARTStdioConfig(0, 115200, 16000000);
 }
-
 
 /* Initialises the program status structure object */
 void
@@ -192,7 +169,6 @@ initialiseProgramStatus (OperatingData_t* statusObject)
     statusObject->iPartAlt = STARTING_ALT_INTG_ERROR;
 }
 
-
 //*****************************************************************************
 //
 // Initialize FreeRTOS and start the initial set of tasks.
@@ -201,28 +177,20 @@ initialiseProgramStatus (OperatingData_t* statusObject)
 int
 main(void)
 {
-    //
     // Set the clocking to run at 50 MHz from the PLL.
-    //
     ROM_SysCtlClockSet(SYSCTL_SYSDIV_4 | SYSCTL_USE_PLL | SYSCTL_XTAL_16MHZ |
                        SYSCTL_OSC_MAIN);
 
-    //
     // Initialize the UART and configure it for 115,200, 8-N-1 operation.
-    //
     ConfigureUART();
 
-    //
     // Print demo introduction.
-    //
     UARTprintf("\n\nWelcome to the ENCE464 helirig thing!\n");
 
 
-    //
     // Creating needed FreeRTOS structures
     g_pUARTMutex = xSemaphoreCreateMutex();
 
-    //
     // Create the UART task.
     if(uartTaskInit() != 0)
     {
@@ -232,9 +200,7 @@ main(void)
         }
     }
 
-    //
     // Create the switch task.
-    //
     if(ButtonsSwitchTaskInit() != 0)
     {
 
@@ -260,7 +226,6 @@ main(void)
         }
     }
 
-    //
     // Create the ADC trigger task.
     if(adcTriggerTaskInit() != 0)
     {
@@ -270,7 +235,6 @@ main(void)
         }
     }
 
-    //
     // Create the ADC queue task.
     if(adcQueueTaskInit() != 0)
     {
@@ -280,7 +244,6 @@ main(void)
         }
     }
 
-    //
     // Create the PWM task.
     if(pwmTaskInit() != 0)
     {
@@ -293,16 +256,11 @@ main(void)
     // Initialise the program status
     initialiseProgramStatus (&g_programStatus);
 
-    //
     // Start the scheduler.  This should not return.
-    //
     vTaskStartScheduler();
 
-    //
     // In case the scheduler returns for some reason, print an error and loop
     // forever.
-    //
-
     while(1)
     {
     }
