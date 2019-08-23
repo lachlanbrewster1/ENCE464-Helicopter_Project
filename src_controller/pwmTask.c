@@ -1,19 +1,27 @@
-/*
- * pwm.c
- *
- *  Created on: 1/08/2019
- *      Author: lbr63
- *
- *  Uses a modified version of pwnGen.c, by P.J. Bones UCECE
- *
- */
+// *******************************************************
+//
+// pwmTask.c
+//
+// Definition of the PWM task. This task handles the generation of a PWM
+// signal to power the main helicopter rotor. It monitors the desired PWM
+// Duty cycle using the program status structure
+//
+// Author: Lachlan Brewster
+// Last modified:  23/08/2019
+//
+// *******************************************************
+
+
+// Put std includes before everything else
 #include <stdint.h>
 #include <stdbool.h>
-#include "stdio.h"
-#include "stdlib.h"
+#include <stdio.h>
+#include <stdlib.h>
 
-#include <priorities.h>
-#include "uart.h"
+// Custom application includes
+#include "priorities.h"
+#include "pwmTask.h"
+#include "sharedConstants.h"
 
 #include "inc/hw_memmap.h"
 #include "inc/hw_types.h"
@@ -25,37 +33,26 @@
 #include "driverlib/interrupt.h"
 #include "driverlib/debug.h"
 #include "driverlib/pin_map.h"
-
 #include "utils/ustdlib.h"
-#include "circBufT.h"
-#include "pwmTask.h"
-#include "sharedConstants.h"
 
-
+// FreeRTOS includes
 #include "FreeRTOS.h"
 #include "task.h"
 #include "queue.h"
 #include "semphr.h"
 
-
-
-
-//*****************************************************************************
-//
-// The stack size for the PWM task.
-//
-//*****************************************************************************
+// FreeRTOS task specific defines
 #define PWMTASKSTACKSIZE        128         // Stack size in words
-
-// FreeRTOS structures.
 extern xSemaphoreHandle g_pUARTMutex;
 extern xQueueHandle g_pwmWriteQueue;
+
+// Global, module-specific, non-FreeRTOS defines
 extern OperatingData_t g_programStatus;
 
-
-
 //*****************************************************************************
-// This task handles PWM for the helirig,  ...     ...
+// This task handles PWM generation for the helirig, It gets the desired
+// PWM duty cycle from the program status structure, and sets the Main rotor
+// to that duty cycle
 //*****************************************************************************
 static void
 pwmTask(void *pvParameters)
@@ -67,28 +64,28 @@ pwmTask(void *pvParameters)
     // Get the current tick count.
     ui16LastTime = xTaskGetTickCount ();
 
-
     xSemaphoreTake(g_pUARTMutex, BLOCK_TIME_MAX);
     UARTprintf("PWMTask starting.\n");
     xSemaphoreGive(g_pUARTMutex);
 
-    //
     // Loop forever
-    while(1) {
+    while(1)
+    {
 
-        // Modes: idle, calibrate, landed, flying, landing
-
-        if (g_programStatus.mode == flying || g_programStatus.mode == landing) {
+        if (g_programStatus.mode == flying || g_programStatus.mode == landing)
+        {
+            // Enable the motors
             PWMOutputState (PWM_MAIN_BASE, PWM_MAIN_OUTBIT, true);
 
-            // Get values from program status
+            // Get the PWM value from program status
             uint32_t mainMotorPWMDuty = g_programStatus.mainMotorPWMDuty;
 
-            //
-            // Set duty cycle of main rotor
-            setDutyCycle(mainMotorPWMDuty, MAIN_ROTOR);
+            // Set duty cycle of the main rotor
+            setDutyCycle(mainMotorPWMDuty);
 
-        } else {
+        } else
+        {
+            // Disable the motors
             PWMOutputState (PWM_MAIN_BASE, PWM_MAIN_OUTBIT, false);
         }
 
@@ -97,18 +94,15 @@ pwmTask(void *pvParameters)
     }
 }
 
-
 //*****************************************************************************
 // Initializes the PWM task.
 //*****************************************************************************
 uint32_t
 pwmTaskInit(void)
 {
-    //
     // Initialize PWM things
     initPWM();
 
-    //
     // Create the PWM task.
     if(xTaskCreate(pwmTask, (const portCHAR *)"PWM",
                    PWMTASKSTACKSIZE, NULL, tskIDLE_PRIORITY +
@@ -119,16 +113,13 @@ pwmTaskInit(void)
 
     UARTprintf("PWM task initialized.\n");
 
-    //
     // Success.
     return(0);
 
-
 }
 
-
 //*****************************************************************************
-// Initialisation functions for the PWM. Initialises module 0 and module 1.
+// Initialisation functions for the PWM. Initialises module 0.
 // Using the constants defined in pwmTask.h
 //*****************************************************************************
 void
@@ -148,29 +139,26 @@ initPWM (void)
     PWMGenConfigure(PWM_MAIN_BASE, PWM_MAIN_GEN,
                     PWM_GEN_MODE_UP_DOWN | PWM_GEN_MODE_NO_SYNC);
 
-    // Set the initial PWM parameters
-    // PWMGenPeriodSet(PWM_MAIN_BASE, PWM_MAIN_GEN, SysCtlClockGet() / PWM_DIVIDER / PWM_FIXED_RATE_HZ);
-
     PWMGenEnable(PWM_MAIN_BASE, PWM_MAIN_GEN);
 
     PWMOutputState(PWM_MAIN_BASE, PWM_MAIN_OUTBIT, true);
 
 }
 
-
 //*****************************************************************
-//  Function to set the duty cycle of the main, or secondary rotor
+//  Function to set the duty cycle of the main rotor
 // ****************************************************************
 void
-setDutyCycle (uint32_t ui32Duty, uint8_t rotor)
+setDutyCycle (uint32_t ui32Duty)
 {
 
     // Calculate the PWM period corresponding to the freq.
-    uint32_t ui32Period =
-    SysCtlClockGet() / PWM_DIVIDER / PWM_FIXED_RATE_HZ;
+    uint32_t ui32Period = SysCtlClockGet() / PWM_DIVIDER / PWM_FIXED_RATE_HZ;
 
+    // Set the PWM period
     PWMGenPeriodSet(PWM_MAIN_BASE, PWM_MAIN_GEN, ui32Period);
 
+    // Set the PWM pulse width
     PWMPulseWidthSet(PWM_MAIN_BASE, PWM_MAIN_OUTNUM,
     ui32Period * ui32Duty / 100);
 }

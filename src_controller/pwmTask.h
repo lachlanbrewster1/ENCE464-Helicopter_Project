@@ -1,12 +1,15 @@
-/*
- * pwmTask.h
- *
- *  Created on: 1/08/2019
- *      Author: lbr63
- *
- *  Uses a modified version of pwnGen.h, by P.J. Bones UCECE
- *
- */
+// *******************************************************
+//
+// pwmTask.h
+//
+// Definition of the PWM task. This task handles the generation of a PWM
+// signal to power the main helicopter rotor. It monitors the desired PWM
+// Duty cycle using the program status structure
+//
+// Author: Lachlan Brewster
+// Last modified:  23/08/2019
+//
+// *******************************************************
 
 #ifndef PWMTASK_H_
 #define PWMTASK_H_
@@ -26,8 +29,6 @@
 #include "driverlib/debug.h"
 #include "utils/ustdlib.h"
 
-
-
 // PWM configuration
 #define PWM_START_DUTY        0
 #define PWM_RATE_MIN_DUTY     0
@@ -35,7 +36,6 @@
 #define PWM_FIXED_RATE_HZ     250
 #define PWM_DIVIDER_CODE   SYSCTL_PWMDIV_4
 #define PWM_DIVIDER           4
-
 
 //  PWM Hardware Details
 #define PWM_MAIN_BASE        PWM0_BASE
@@ -62,7 +62,9 @@
 #define SECONDARY_ROTOR 2
 
 //*****************************************************************************
-// This task handles PWM for the helirig,
+// This task handles PWM generation for the helirig, It gets the desired
+// PWM duty cycle from the program status structure, and sets the Main rotor
+// to that duty cycle
 //*****************************************************************************
 static void
 pwmTask(void *pvParameters);
@@ -74,17 +76,17 @@ uint32_t
 pwmTaskInit(void);
 
 //*****************************************************************************
-// Initialisation functions for the PWM. Initialises module 0 and module 1.
+// Initialisation functions for the PWM. Initialises module 0.
 // Using the constants defined in pwmTask.h
 //*****************************************************************************
 void
 initPWM (void);
 
 //*****************************************************************
-//  Function to set the duty cycle of the main, or secondary rotor
-// ****************************************************************
+//  Function to set the duty cycle of the main rotor
+//*****************************************************************
 void
-setDutyCycle (uint32_t ui32Duty, uint8_t rotor);
+setDutyCycle (uint32_t ui32Duty);
 
 
 #endif /* PWMTASK_H_ */

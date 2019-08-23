@@ -1,9 +1,26 @@
+// *******************************************************
+//
+// uartTask.c
+//
+// Definition of the UART task. This task sends important, real
+// time information about the heli righ to serial communications
+//
+// Author: Lachlan Brewster
+// Last modified:  23/08/2019
+//
+// *******************************************************
+
+
+// Put std includes before everything else
 #include <stdint.h>
 #include <stdbool.h>
+#include <stdio.h>
+#include <stdlib.h>
 
-#include <priorities.h>
+// Custom application includes
 #include "priorities.h"
-
+#include "sharedConstants.h"
+#include "uartTask.h"
 
 #include "inc/hw_memmap.h"
 #include "inc/hw_types.h"
@@ -15,42 +32,25 @@
 #include "driverlib/interrupt.h"
 #include "driverlib/debug.h"
 #include "utils/ustdlib.h"
-#include "circBufT.h"
-#include "uartTask.h"
 
-#include "sharedConstants.h"
-
-#include "stdio.h"
-#include "stdlib.h"
-
-#include "utils/uart.h"
-
-
+// FreeRTOS includes
 #include "FreeRTOS.h"
 #include "task.h"
 #include "queue.h"
 #include "semphr.h"
 
-
-
-//*****************************************************************************
-//
-// The stack size for the UART task.
-//
-//*****************************************************************************
+// FreeRTOS task specific defines
 #define UARTTASKSTACKSIZE        128         // Stack size in words
-
-extern OperatingData_t g_programStatus;
-
-// FreeRTOS structures.
 extern xSemaphoreHandle g_pUARTMutex;
 
-// Globals
+// Global, module-specific, non-FreeRTOS defines
+extern OperatingData_t g_programStatus;
 extern uint32_t g_landedAltitudeADCValue;
 
-
 //*****************************************************************************
-// This task handles the UART communications, sending current info about the helirig
+// This task handles the UART communications, sending current info about the
+// helirig to serial communications. Sends the following info:
+// Heli mode, current altitude %, reference altitude %, PWM duty cycle
 //*****************************************************************************
 static void
 uartTask(void *pvParameters)
@@ -66,25 +66,24 @@ uartTask(void *pvParameters)
     UARTprintf("UART task starting.\n");
     xSemaphoreGive(g_pUARTMutex);
 
-    //                xSemaphoreTake(g_pUARTMutex, BLOCK_TIME_MAX);
-    //                char string[31];
-    //                usnprintf (string, sizeof(string), "ADC value: %d\r\n", ulValue);
-    //                UARTprintf(string);
-    //                xSemaphoreGive(g_pUARTMutex);
-
-    //
     // Loop forever
     while(1) {
 
+        // Calculate the helirig altitude as a percentage
         int8_t percentAltitude = (100 * (g_landedAltitudeADCValue - g_programStatus.currentAltDig)) / HELI_OFFSET_FULL;
-        if (percentAltitude > 100) {
+        if (percentAltitude > 100)
+        {
             percentAltitude = 100;
-        } else if (percentAltitude < 0) {
+        }
+        else if (percentAltitude < 0)
+        {
             percentAltitude = 0;
         }
 
+        // Handling printing the mode enum as a string
         char heliMode[10];
-        switch (g_programStatus.mode) {
+        switch (g_programStatus.mode)
+        {
           case idle:
               usnprintf (heliMode, sizeof(heliMode), "idle");
               break;
@@ -102,11 +101,13 @@ uartTask(void *pvParameters)
               break;
         }
 
+        // Print the helirigh info, guarded by the uart mutex
         xSemaphoreTake(g_pUARTMutex, BLOCK_TIME_MAX);
         UARTprintf("Current altitude: %d %% \n", percentAltitude);
         UARTprintf("Reference altitude: %d %% \n", g_programStatus.referenceAltPercent);
 
-        if (g_programStatus.mode == flying || g_programStatus.mode == landing) {
+        if (g_programStatus.mode == flying || g_programStatus.mode == landing)
+        {
             UARTprintf("PWM: %d %% \n", g_programStatus.mainMotorPWMDuty);
         } else {
             UARTprintf("PWM: INACTIVE %% \n");
@@ -119,10 +120,7 @@ uartTask(void *pvParameters)
         vTaskDelayUntil (&ui16LastTime, ui32PollDelay / portTICK_RATE_MS);
 
     }
-
-
 }
-
 
 //*****************************************************************************
 // Initializes the UART task.
@@ -130,11 +128,7 @@ uartTask(void *pvParameters)
 uint32_t
 uartTaskInit(void)
 {
-    //
-    // Initialize UART things
-    //initialiseUSB_UART();
 
-    //
     // Create the UART task.
     if(xTaskCreate(uartTask, (const portCHAR *)"UART",
                    UARTTASKSTACKSIZE, NULL, tskIDLE_PRIORITY +
@@ -145,17 +139,7 @@ uartTaskInit(void)
 
     UARTprintf("UART task initialized.\n");
 
-    //
     // Success.
     return(0);
 
-
 }
-
-
-
-
-
-
-
-

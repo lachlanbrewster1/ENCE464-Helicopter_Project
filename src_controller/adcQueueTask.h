@@ -1,9 +1,17 @@
-/*
- * adcTask.h
- *
- *  Created on: 1/08/2019
- *      Author: lbr63
- */
+// *******************************************************
+//
+// adcQueueTask.c
+//
+// Definition of the ADC queue task. This task populates the circular
+// buffer with ADC values, and calculates the average of the buffer and
+// sends it to the event queue to be processed
+//
+// Author: Lachlan Brewster
+// Last modified:  23/08/2019
+//
+// *******************************************************
+
+
 
 #ifndef ADCQUEUETASK_H_
 #define ADCQUEUETASK_H_
@@ -18,8 +26,8 @@ uint32_t
 adcQueueTaskInit(void);
 
 //*****************************************************************************
-// This task handles ADC for the helirig, constantly monitoring the height of the rig,
-// storing the received values in a circular buffer
+// This task handles calculating, then sending the current average ADC value
+// stored in the circular buffer to the program status through use of the event queue
 //*****************************************************************************
 static void
 adcQueueTask(void *pvParameters);
